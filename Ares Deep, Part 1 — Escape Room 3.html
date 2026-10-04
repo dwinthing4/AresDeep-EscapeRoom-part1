@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ares Deep</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&amp;family=Barlow:ital,wght@0,400;0,600;1,400&amp;family=JetBrains+Mono:wght@400;700&amp;family=Courier+Prime:wght@400;700&amp;display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --surround:#c8c2b8;
+  --surround-ink:#1e2428;
+  --hull:#151b1e;
+  --hull-2:#1f272b;
+  --brass:#3fbfb0;
+  --brass-hi:#7fe8dc;
+  --brass-lo:#2a5a55;
+  --amber:#f2c230;
+  --paper:#e8ece9;
+  --paper-ink:#1b2226;
+  --verdigris:#e0905a;
+  --alarm:#c0503a;
+  --serif:"Barlow", "Segoe UI", system-ui, sans-serif;
+  --sc:"Chakra Petch", "Barlow", sans-serif;
+  --tape:"Courier Prime", "Courier New", Courier, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --surround:#08090a; --surround-ink:#c9cfcc; }
+}
+:root[data-theme="dark"]{ --surround:#08090a; --surround-ink:#c9cfcc; }
+html{ height:100%; scroll-padding-top:env(safe-area-inset-top,0px); }
+*,*::before,*::after{ box-sizing:inherit; }
+body{ margin:0; height:100%; background:var(--surround); color:var(--surround-ink); font-family:var(--serif); overflow:hidden; -webkit-tap-highlight-color:transparent; }
+button{ font-family:inherit; }
+:focus-visible{ outline:2px solid var(--brass-hi); outline-offset:2px; }
+
+#app{ height:100%; display:flex; flex-direction:column; }
+
+/* ---------- HUD ---------- */
+#hud{ flex:0 0 auto; display:flex; align-items:center; gap:.6rem; padding:.45rem .8rem; background:linear-gradient(#1f272b,#12171a); border-bottom:2px solid var(--brass-lo); color:var(--paper); }
+#hud h1{ margin:0; font-family:var(--sc); font-weight:400; font-size:1.15rem; letter-spacing:.04em; color:var(--brass-hi); white-space:nowrap; }
+#hud .spacer{ flex:1; }
+#timer{ font-family:var(--tape); font-weight:700; font-size:1rem; color:var(--amber); min-width:4.5em; text-align:right; }
+.hbtn{ background:linear-gradient(#3a4a55,#25323c); color:var(--paper); border:1px solid var(--brass-lo); border-radius:3px; padding:.3rem .7rem; font-size:.95rem; cursor:pointer; }
+.hbtn:hover{ border-color:var(--brass-hi); color:#fff; }
+.hbtn .n{ font-family:var(--tape); color:var(--amber); font-size:.8rem; }
+
+/* ---------- Stage ---------- */
+#stage-wrap{ flex:1 1 auto; min-height:0; display:flex; align-items:center; justify-content:center; padding:.4rem; }
+#stage{ position:relative; aspect-ratio:16/9; width:min(100%, calc((100dvh - 9.5rem - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)) * 16 / 9)); max-height:100%; background:#05080b; overflow:hidden; border:2px solid var(--brass-lo); box-shadow:0 0 0 1px #000, 0 10px 40px rgba(0,0,0,.5); user-select:none; -webkit-user-select:none; touch-action:manipulation; }
+.layer{ position:absolute; inset:0; will-change:transform,opacity; }
+.layer svg{ width:100%; height:100%; display:block; }
+.layer.hidden{ visibility:hidden; }
+#grain{ position:absolute; inset:0; pointer-events:none; opacity:.09; mix-blend-mode:overlay; z-index:5; }
+#vignette{ position:absolute; inset:0; pointer-events:none; z-index:6; background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%); }
+#flash{ position:absolute; inset:0; pointer-events:none; z-index:7; background:#cfe3ff; opacity:0; mix-blend-mode:screen; }
+#flash.on{ animation:lightning 1.1s ease-out; }
+@keyframes lightning{ 0%{opacity:0} 4%{opacity:.35} 9%{opacity:.05} 14%{opacity:.28} 40%{opacity:0} 100%{opacity:0} }
+#back{ position:absolute; left:1.2%; bottom:2%; z-index:8; display:none; background:rgba(14,20,26,.78); color:var(--paper); border:1px solid var(--brass); border-radius:20px; padding:.35rem .9rem .35rem .7rem; font-size:1rem; cursor:pointer; }
+#back:hover{ background:rgba(40,52,62,.9); }
+#caption{ position:absolute; left:50%; bottom:2.2%; transform:translateX(-50%); z-index:8; max-width:72%; text-align:center; pointer-events:none; color:#f3ead4; font-size:clamp(.8rem,1.5vw,1.1rem); font-style:italic; text-shadow:0 1px 3px #000, 0 0 12px #000; opacity:0; transition:opacity .25s; }
+#caption.on{ opacity:1; }
+#toast{ position:absolute; left:50%; top:3%; transform:translate(-50%,-10px); z-index:9; max-width:80%; background:rgba(12,18,23,.9); border:1px solid var(--brass); color:var(--paper); padding:.5rem 1rem; border-radius:3px; font-size:clamp(.82rem,1.5vw,1.05rem); line-height:1.4; opacity:0; transition:opacity .3s, transform .3s; pointer-events:none; text-align:center; }
+#toast.on{ opacity:1; transform:translate(-50%,0); }
+
+/* hotspots */
+.hot{ cursor:pointer; }
+.hot .hl{ fill:transparent; stroke:transparent; }
+.hot:hover .hl, .hot:focus .hl{ stroke:rgba(230,201,127,.55); stroke-width:3; fill:rgba(230,201,127,.06); }
+.hot:hover .glowme{ filter:url(#hoverGlow); }
+.selmode .usable .hl{ stroke:rgba(242,181,82,.5); stroke-dasharray:8 6; stroke-width:2; animation:march 1s linear infinite; }
+@keyframes march{ to{ stroke-dashoffset:-28; } }
+
+/* generic SVG animation helpers */
+.tr{ transition:transform .7s cubic-bezier(.3,.7,.2,1), opacity .5s; transform-box:fill-box; }
+.drop{ animation:rain .55s linear infinite; }
+@keyframes rain{ from{ transform:translate(0,-60px);} to{ transform:translate(-18px,140px);} }
+.flicker{ animation:flick 2.2s infinite; transform-box:fill-box; transform-origin:50% 100%; }
+@keyframes flick{ 0%,100%{transform:scale(1,1); opacity:1} 30%{transform:scale(.94,1.07); opacity:.92} 55%{transform:scale(1.04,.95)} 75%{transform:scale(.97,1.04); opacity:.96} }
+.dust{ animation:dust 9s ease-in-out infinite; }
+@keyframes dust{ 0%,100%{ transform:translate(0,0); opacity:.0 } 30%{opacity:.7} 50%{ transform:translate(14px,-20px); opacity:.5 } 80%{opacity:.6} }
+.sway{ animation:sway 2s ease-in-out infinite alternate; transform-box:view-box; }
+@keyframes sway{ from{ transform:rotate(-9deg);} to{ transform:rotate(9deg);} }
+.spin{ animation:spin 4s linear infinite; transform-box:fill-box; transform-origin:center; }
+.spin.rev{ animation-direction:reverse; }
+.spin.fast{ animation-duration:1.6s; }
+@keyframes spin{ to{ transform:rotate(360deg);} }
+.sweep{ animation:sweep 6s linear infinite; transform-box:view-box; }
+@keyframes sweep{ 0%{ opacity:0 } 15%{opacity:.9} 35%{opacity:0} 100%{opacity:0} }
+.wave{ animation:wave 5s ease-in-out infinite alternate; }
+@keyframes wave{ from{ transform:translateX(-30px);} to{ transform:translateX(30px);} }
+.shake{ animation:shake .45s; transform-box:fill-box; }
+@keyframes shake{ 0%,100%{transform:translateX(0)} 20%{transform:translateX(-9px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(4px)} }
+.pulse{ animation:pulse 1.6s ease-in-out infinite; }
+@keyframes pulse{ 0%,100%{opacity:.35} 50%{opacity:1} }
+
+/* ---------- Inventory ---------- */
+#inv{ flex:0 0 auto; display:flex; align-items:center; gap:.5rem; padding:.45rem .8rem; background:linear-gradient(#12171a,#1f272b); border-top:2px solid var(--brass-lo); min-height:4.6rem; overflow-x:auto; }
+#inv .lbl{ font-family:var(--sc); color:var(--brass); font-size:.95rem; margin-right:.3rem; white-space:nowrap; }
+.slot{ flex:0 0 auto; width:3.6rem; height:3.6rem; border:1px solid #3d4b55; background:radial-gradient(#2a3843,#18232b); border-radius:4px; display:flex; align-items:center; justify-content:center; cursor:pointer; position:relative; padding:0; }
+.slot svg{ width:82%; height:82%; }
+.slot:hover{ border-color:var(--brass); }
+.slot.sel{ border-color:var(--amber); box-shadow:0 0 0 2px rgba(242,181,82,.35), 0 0 14px rgba(242,181,82,.4); }
+.slot.new{ animation:newitem 1.2s ease-out; }
+@keyframes newitem{ 0%{ transform:scale(1.5); box-shadow:0 0 30px var(--amber);} 100%{ transform:scale(1);} }
+.slot.empty{ cursor:default; opacity:.4; }
+#invhelp{ color:#8d9aa3; font-size:.85rem; font-style:italic; margin-left:auto; white-space:nowrap; padding-left:.5rem; }
+
+/* ---------- Modal ---------- */
+#modal{ position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center; background:rgba(3,6,9,.72); backdrop-filter:blur(2px); padding:1rem; }
+#modal.on{ display:flex; }
+#mbox{ position:relative; max-width:min(1000px,96vw); max-height:92dvh; overflow:auto; background:var(--hull); border:2px solid var(--brass-lo); color:var(--paper); padding:1.3rem 1.5rem 1.2rem; border-radius:3px; box-shadow:0 20px 60px rgba(0,0,0,.6); animation:mopen .35s cubic-bezier(.2,.8,.2,1); }
+@keyframes mopen{ from{ transform:scale(.92) translateY(14px); opacity:0;} }
+#mbox h2{ margin:0 0 .6rem; font-family:var(--sc); font-weight:400; color:var(--brass-hi); font-size:1.45rem; }
+#mclose{ position:absolute; right:.6rem; top:.5rem; background:none; border:none; color:var(--paper); font-size:1.6rem; cursor:pointer; line-height:1; }
+.mtext{ line-height:1.55; font-size:1.05rem; max-width:62ch; }
+.paper{ background:linear-gradient(135deg,#efe3c6,#ddcba4); color:var(--paper-ink); padding:1.4rem 1.6rem; border-radius:2px; box-shadow:inset 0 0 40px rgba(110,80,30,.35); }
+.mbtns{ display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.9rem; }
+.mbtn{ background:linear-gradient(#5ad6c8,#2a9a8e); color:#0b1a18; border:1px solid #1d5a54; border-radius:3px; padding:.4rem 1rem; font-size:1rem; cursor:pointer; font-family:var(--serif); }
+.mbtn:hover{ filter:brightness(1.12); }
+.mbtn.ghost{ background:transparent; color:var(--paper); border-color:var(--brass-lo); }
+.mbtn:disabled{ opacity:.45; cursor:default; filter:none; }
+
+/* log book */
+.book{ display:flex; gap:0; perspective:1600px; }
+.page{ flex:1; min-height:24rem; width:min(36rem,86vw); padding:1.6rem 1.8rem; background:linear-gradient(90deg,#d9c79f,#ecdfc2 8%,#efe4c9); color:var(--paper-ink); font-size:1.08rem; line-height:1.6; box-shadow:inset 0 0 50px rgba(120,85,30,.35); border-radius:2px; position:relative; transform-origin:left center; }
+.page.turn{ animation:turn .6s ease-in-out; }
+@keyframes turn{ 0%{ transform:rotateY(0)} 50%{ transform:rotateY(-80deg); filter:brightness(.7)} 100%{ transform:rotateY(0)} }
+.page h3{ font-family:var(--sc); font-weight:400; margin:0 0 .5rem; font-size:1.2rem; }
+.page .pno{ position:absolute; bottom:.6rem; right:1rem; font-style:italic; opacity:.6; font-size:.9rem; }
+.ph{ position:relative; }
+.lit .ph::after{ content:""; position:absolute; left:50%; top:-.25em; width:5px; height:5px; margin-left:-2.5px; border-radius:50%; background:#fff6c8; box-shadow:0 0 6px 3px #ffd36b; }
+.lit .ph{ color:#7a2a08; text-shadow:0 0 8px rgba(255,190,80,.9); }
+.dimnote{ font-style:italic; color:#6b5634; font-size:.95rem; margin-top:.6rem; }
+
+/* tables */
+.ttab{ border-collapse:collapse; font-size:1rem; }
+.ttab th,.ttab td{ border:1px solid #9a835a; padding:.3rem .55rem; text-align:center; }
+.ttab th{ font-family:var(--sc); font-weight:400; background:rgba(150,110,50,.15); }
+.morsegrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(6.2rem,1fr)); gap:.25rem .9rem; font-size:1.05rem; }
+.morsegrid span b{ display:inline-block; width:1.3em; font-family:var(--sc); }
+.morsegrid span i{ font-family:var(--tape); font-style:normal; letter-spacing:.12em; }
+.tapeview{ font-family:var(--tape); font-size:1.15rem; letter-spacing:.15em; background:#f4ecd6; color:#20160c; padding:.8rem 1rem; border-radius:2px; word-break:break-all; line-height:1.9; max-height:16rem; overflow:auto; }
+
+/* journal / hints */
+.jlist{ margin:0; padding-left:1.1rem; line-height:1.55; }
+.jlist li{ margin-bottom:.35rem; }
+.hint{ border-left:3px solid var(--brass-lo); padding:.3rem .8rem; margin:.5rem 0; background:rgba(255,255,255,.03); line-height:1.5; }
+.goal{ color:var(--amber); font-style:italic; margin-bottom:.4rem; }
+
+/* overlays */
+.overlay{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center; padding:1.2rem; background:radial-gradient(ellipse at 50% 85%, #7a3214 0%, #2a120a 45%, #08090a 100%); color:var(--paper); }
+.overlay.on{ display:flex; }
+.ovin{ max-width:44rem; text-align:left; }
+.ovin .t1{ font-family:var(--sc); font-size:clamp(2.4rem,7vw,4.6rem); line-height:.95; color:#ffd2a0; margin:0; letter-spacing:.01em; }
+.ovin .t2{ font-style:italic; color:var(--verdigris); font-size:clamp(1rem,2.2vw,1.3rem); margin:.5rem 0 1.4rem; }
+.ovin p{ line-height:1.65; font-size:clamp(1rem,1.9vw,1.15rem); max-width:60ch; }
+.ovin .mbtns{ margin-top:1.6rem; }
+#intro-beam{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+.stat{ display:inline-block; margin-right:2rem; }
+.stat b{ display:block; font-family:var(--tape); font-size:1.6rem; color:var(--amber); font-weight:400; }
+
+@media (max-width:640px){
+  #hud h1{ font-size:.95rem; }
+  .hbtn{ padding:.25rem .45rem; font-size:.85rem; }
+  #invhelp{ display:none; }
+  .slot{ width:3rem; height:3rem; }
+}
+@media (prefers-reduced-motion: reduce){
+  .drop,.dust,.wave,.sway{ animation:none; }
+}
+</style>
+<script type='text/javascript' nonce='qhZyJv28UOvfswr78KDNvQ==' src='https://90252147-b4dd-4086-ab39-84ebd0124bca.frame.claudeusercontent.com/_x_txKne60Hnlrh5BTfuUiWXIVMVzr-M84ep5Lrmzd9ZvG1FEdvk_x4swWrGm5fl_r984UmXNkY2HS5JfZWJCFl4J-_pLMGctbGMnT-6Q-3it5eOsZVZx_0yPei-GOodRWQa9wxlFecp0gZhREnigurci1W9J29W9RXiGfQExCRqWkk1sUqeplj_rAd3Tpj_e6oDOxLt8AncwlZhI9O5AcR-rwpX0vqV5esTUbvpMd75pcozdXov_x49o3RRR8_Y6u5nN4E6q7MKN7nVbEHusBMXWyePrH8THqR1uGRsRaiegOp9p199HwXBzAWtOLq2HanayG7VMcQZA40uXs5ZpoW-uUPkxxsfXQDgn0el6sbRqF3xJXxnBtmY7zjzkum6WgNPI631gRtu3p478fcd0-h3tLh9ShwVWjv6G18wUkMwOzDf4nexXIiapOeA0gf96SUE6C-WxbHKWKgnphNd3OqfJ7OhGs6gRx2k5buG-Vv73JoiPPBwSGX57Jd5WUn9hvR9IcJQBsUzERfkUTo4Yti4_34E2mJhxms5gQOA4_9ED4wA7isfr4kdapSJvoSf49nWOxY0a-6VD7bggXj4pOvDs8n_rCw2o6wAob9oeDrohIbpE750r66XbuNmd6UY25ypdM8_fX_4KdIxyBfGnzh5YU8tSocOFtuqtNV5sFems4fYkFbdDW41aESXLqffq_ZBmukjo8h6kIrgPscTsg'></script></head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+  <lineargradient id="gWood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a5434"/><stop offset="1" stop-color="#4b3220"/></linearGradient>
+  <lineargradient id="gWoodTop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8d6640"/><stop offset="1" stop-color="#5f4129"/></linearGradient>
+  <lineargradient id="gWoodDark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a3020"/><stop offset="1" stop-color="#2a1b11"/></linearGradient>
+  <lineargradient id="gBrass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3dc95"/><stop offset=".45" stop-color="#c39a45"/><stop offset="1" stop-color="#6e5221"/></linearGradient>
+  <lineargradient id="gBrassH" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7a5b24"/><stop offset=".5" stop-color="#e9cc82"/><stop offset="1" stop-color="#7a5b24"/></linearGradient>
+  <radialgradient id="gBrassR" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#f6e2a2"/><stop offset=".5" stop-color="#bf9440"/><stop offset="1" stop-color="#5e4419"/></radialGradient>
+  <lineargradient id="gIron" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#565c63"/><stop offset="1" stop-color="#25292e"/></linearGradient>
+  <lineargradient id="gWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c262e"/><stop offset=".7" stop-color="#2a3640"/><stop offset="1" stop-color="#202a32"/></linearGradient>
+  <lineargradient id="gFloor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2a1d"/><stop offset="1" stop-color="#1e150e"/></linearGradient>
+  <lineargradient id="gSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a131c"/><stop offset=".7" stop-color="#1e3343"/><stop offset="1" stop-color="#2b4352"/></linearGradient>
+  <lineargradient id="gSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f3a44"/><stop offset="1" stop-color="#081419"/></linearGradient>
+  <lineargradient id="gPaper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#efe3c6"/><stop offset="1" stop-color="#cfbb91"/></linearGradient>
+  <lineargradient id="gGlass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfe8ee" stop-opacity=".35"/><stop offset=".5" stop-color="#8fb7c2" stop-opacity=".12"/><stop offset="1" stop-color="#d9f1f5" stop-opacity=".3"/></linearGradient>
+  <radialgradient id="gLampGlow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffcf7a" stop-opacity=".55"/><stop offset=".4" stop-color="#f2a03c" stop-opacity=".18"/><stop offset="1" stop-color="#f2a03c" stop-opacity="0"/></radialGradient>
+  <radialgradient id="gFlame" cx=".5" cy=".7" r=".6"><stop offset="0" stop-color="#fff9dc"/><stop offset=".45" stop-color="#ffc24a"/><stop offset="1" stop-color="#e5651c" stop-opacity="0"/></radialGradient>
+  <radialgradient id="gBeamDot" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fffbe6"/><stop offset=".3" stop-color="#ffd877" stop-opacity=".9"/><stop offset="1" stop-color="#ffb84a" stop-opacity="0"/></radialGradient>
+  <lineargradient id="gBeam" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff6cf" stop-opacity=".75"/><stop offset="1" stop-color="#fff6cf" stop-opacity="0"/></linearGradient>
+  <radialgradient id="gHole" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#000" stop-opacity=".8"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+  <pattern id="pStone" width="140" height="70" patternunits="userSpaceOnUse">
+    <rect width="140" height="70" fill="none"/>
+    <path d="M0 0H140M0 35H140M30 0V35M100 0V35M65 35V70M135 35V70" stroke="#0d1419" stroke-width="2" opacity=".55"/>
+    <path d="M2 2H138M2 37H138" stroke="#4a5a66" stroke-width="1" opacity=".25"/>
+  </pattern>
+  <pattern id="pGrain" width="300" height="40" patternunits="userSpaceOnUse">
+    <path d="M0 8 C60 5 120 12 180 8 S270 5 300 9 M0 22 C70 25 130 18 200 23 S280 26 300 21 M0 33 C50 31 110 36 170 32 S260 30 300 34" stroke="#2a1a0e" stroke-width="1.3" fill="none" opacity=".35"/>
+  </pattern>
+  <filter id="hoverGlow" x="-20%" y="-20%" width="140%" height="140%"><fedropshadow dx="0" dy="0" stddeviation="6" flood-color="#e6c97f" flood-opacity=".55"/></filter>
+  <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><fegaussianblur stddeviation="8"/></filter>
+  <filter id="soft2" x="-30%" y="-30%" width="160%" height="160%"><fegaussianblur stddeviation="3"/></filter>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><fedropshadow dx="0" dy="8" stddeviation="8" flood-color="#000" flood-opacity=".55"/></filter>
+  <filter id="carve" x="-10%" y="-10%" width="120%" height="120%"><fedropshadow dx="-1.5" dy="-1.5" stddeviation=".6" flood-color="#000" flood-opacity=".7"/><fedropshadow dx="1.5" dy="1.5" stddeviation=".6" flood-color="#d9b07a" flood-opacity=".35"/></filter>
+</defs>
+</svg>
+
+<div id="app">
+  <header id="hud">
+    <h1>Ares Deep · Part 1</h1>
+    <span class="spacer"></span>
+    <span id="timer" title="Time elapsed">00:00</span>
+    <button class="hbtn" id="bHint">Hints <span class="n" id="hintN">0</span></button>
+    <button class="hbtn" id="bJournal">Journal</button>
+    <button class="hbtn" id="bManual">HALE manual</button>
+    <button class="hbtn" id="bSound" aria-pressed="true">Sound on</button>
+    <button class="hbtn" id="bMenu">Menu</button>
+  </header>
+  <main id="stage-wrap">
+    <div id="stage">
+      <div class="layer" id="L0"></div>
+      <div class="layer hidden" id="L1"></div>
+      <canvas id="grain"></canvas>
+      <div id="vignette"></div>
+      <div id="flash"></div>
+      <button id="back">&#8592; Step back</button>
+      <div id="caption"></div>
+      <div id="toast"></div>
+    </div>
+  </main>
+  <footer id="inv"><span class="lbl">Satchel</span><div id="slots" style="display:flex;gap:.5rem"></div><span id="invhelp">Click an item to select it, then click where to use it. Double-click to examine.</span></footer>
+</div>
+
+<div id="modal" role="dialog" aria-modal="true"><div id="mbox"><button id="mclose" aria-label="Close">&times;</button><div id="mcontent"></div></div></div>
+
+<div class="overlay on" id="intro">
+  <div class="ovin" style="position:relative">
+    <h2 class="t1">Ares Deep</h2>
+    <div class="t2">Jezero Crater, Mars · Sol 412, 2091 · Part 1 of 2</div>
+    <p>A dust storm cut the station's power. The crew evacuated to the orbiter while you were sedated in the medbay after an EVA accident. They couldn't wait. They'll come round again, and you have to be ready to launch.</p>
+    <p>The station's AI, HALE, still has every engineering manual on file but nothing to run on. Everything that needs doing, you'll have to work out yourself: batteries, logic, hydraulics, heat, chemistry, gears.</p>
+    <p>Every number in this station is different each time you play. Read the data plates. Use the manual. Show your working.</p>
+    <div class="mbtns"><button class="mbtn" id="bBegin">Begin</button><button class="mbtn ghost" id="bContinue" style="display:none">Continue saved game</button></div>
+  </div>
+</div>
+<div class="overlay" id="win">
+  <div class="ovin">
+    <h2 class="t1">Phase 3 complete</h2>
+    <div class="t2">Power, access, heat, oxygen and lift are done</div>
+    <p id="winText"></p>
+    <div id="winStats" style="margin-top:1.2rem"></div>
+    <p style="opacity:.8">Part 2 continues in the propellant bay: combustion chemistry, fuel transfer, structures and the launch.</p>
+    <div class="mbtns"><button class="mbtn" id="bAgain">New game, new numbers</button><button class="mbtn ghost" id="bStay">Stay on the station</button></div>
+  </div>
+</div>
+
+<script>
+(()=>{
+"use strict";
+const $=s=>document.querySelector(s);
+const SAVE='ares-deep-1-v1';
+const VW=1600, VH=900;
+
+/* ============================== STATE ============================== */
+const fresh=()=>({scene:'hab',t:0,hints:0,tier:{},inv:[],taken:{},f:{},journal:[],mistakes:0,origins:{},sel:null,seed:0});
+let S=fresh();
+let saveT=null;
+function save(){ clearTimeout(saveT); saveT=setTimeout(()=>{ try{ localStorage.setItem(SAVE,JSON.stringify(S)); }catch(e){} },150); }
+function load(){ try{ const r=localStorage.getItem(SAVE); if(r){ const o=JSON.parse(r); if(o&&o.t!==undefined) return Object.assign(fresh(),o); } }catch(e){} return null; }
+function wipe(){ try{ localStorage.removeItem(SAVE); }catch(e){} }
+
+/* ============================== AUDIO ============================== */
+const A={ctx:null,on:true};
+function audioInit(){
+  if(A.ctx) return;
+  try{ A.ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+  const c=A.ctx;
+  A.master=c.createGain(); A.master.gain.value=A.on?0.85:0; A.master.connect(c.destination);
+  const len=c.sampleRate*2, b=c.createBuffer(1,len,c.sampleRate), d=b.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+  A.noise=b;
+  // rain bed
+  const r=c.createBufferSource(); r.buffer=b; r.loop=true;
+  const rf=c.createBiquadFilter(); rf.type='bandpass'; rf.frequency.value=2600; rf.Q.value=.35;
+  const rg=c.createGain(); rg.gain.value=.045; r.connect(rf).connect(rg).connect(A.master); r.start();
+  // wind with slow swell
+  const w=c.createBufferSource(); w.buffer=b; w.loop=true; w.playbackRate.value=.5;
+  const wf=c.createBiquadFilter(); wf.type='lowpass'; wf.frequency.value=380;
+  const wg=c.createGain(); wg.gain.value=.07;
+  const lfo=c.createOscillator(); lfo.frequency.value=.07; const lg=c.createGain(); lg.gain.value=.05; lfo.connect(lg).connect(wg.gain); lfo.start();
+  w.connect(wf).connect(wg).connect(A.master); w.start();
+  // morse tone
+  const o=c.createOscillator(); o.type='sine'; o.frequency.value=640;
+  const og=c.createGain(); og.gain.value=0; o.connect(og).connect(A.master); o.start();
+  A.toneG=og; A.toneO=o;
+}
+function nz({dur=.15,freq=1200,q=1,type='bandpass',gain=.4,attack=.004,delay=0}={}){
+  if(!A.ctx) return; const c=A.ctx, t=c.currentTime+delay;
+  const s=c.createBufferSource(); s.buffer=A.noise; s.playbackRate.value=.6+Math.random()*.8;
+  const f=c.createBiquadFilter(); f.type=type; f.frequency.value=freq; f.Q.value=q;
+  const g=c.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(gain,t+attack); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  s.connect(f).connect(g).connect(A.master); s.start(t,Math.random()); s.stop(t+dur+.05);
+}
+function tn(freq,dur,type='sine',gain=.15,slide,delay=0){
+  if(!A.ctx) return; const c=A.ctx, t=c.currentTime+delay;
+  const o=c.createOscillator(); o.type=type; o.frequency.setValueAtTime(freq,t); if(slide) o.frequency.exponentialRampToValueAtTime(slide,t+dur);
+  const g=c.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(gain,t+.008); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(A.master); o.start(t); o.stop(t+dur+.05);
+}
+const sfx={
+  click(){ nz({dur:.05,freq:3200,q:2,gain:.35}); tn(2200,.03,'square',.02); },
+  tick(){ nz({dur:.03,freq:4200,q:5,gain:.22}); },
+  clunk(){ nz({dur:.3,freq:260,q:1,type:'lowpass',gain:.8}); tn(95,.3,'sine',.35,48); },
+  slide(){ nz({dur:.55,freq:650,q:.8,gain:.28,attack:.09}); },
+  creak(){ tn(150,.9,'sawtooth',.045,85); nz({dur:.8,freq:420,q:4,gain:.14,attack:.15}); },
+  unlock(){ sfx.click(); nz({dur:.14,freq:2300,q:3,gain:.35,delay:.12}); tn(1320,.3,'triangle',.07,null,.12); },
+  rattle(){ for(let i=0;i<5;i++) nz({dur:.05,freq:1700+i*230,q:4,gain:.28,delay:i*.055}); },
+  buzz(){ tn(105,.32,'square',.06); },
+  pick(){ tn(660,.14,'triangle',.08,990); },
+  page(){ nz({dur:.32,freq:4200,q:.5,gain:.16,attack:.06}); },
+  match(){ nz({dur:.25,freq:3400,q:.3,gain:.4,attack:.005}); nz({dur:1.2,freq:700,q:.5,gain:.09,attack:.25,delay:.15}); },
+  thunder(){ nz({dur:3.6,freq:130,q:.4,type:'lowpass',gain:1,attack:.08}); nz({dur:1.4,freq:300,q:.6,type:'lowpass',gain:.5,attack:.02,delay:.2}); },
+  chime(){ [0,1].forEach(i=>{ tn(523,2.2,'sine',.12,null,i*.7); tn(1046,1.6,'sine',.04,null,i*.7); tn(1568,1.1,'sine',.02,null,i*.7); }); },
+  success(){ [523,659,784,1046].forEach((f,i)=>tn(f,1,'triangle',.09,null,i*.11)); },
+  whoosh(){ nz({dur:.55,freq:900,q:.6,gain:.13,attack:.2}); },
+  gears(){ for(let i=0;i<14;i++) nz({dur:.04,freq:2600+(i%3)*400,q:6,gain:.2,delay:i*.09}); sfx.clunk(); },
+  splash(){ nz({dur:.6,freq:1600,q:.4,gain:.15,attack:.02}); },
+  hum(on){ if(!A.ctx) return; },
+};
+function toneOn(f=640){ if(!A.ctx) return; A.toneO.frequency.setValueAtTime(f,A.ctx.currentTime); A.toneG.gain.setTargetAtTime(.16,A.ctx.currentTime,.004); }
+function toneOff(){ if(!A.ctx) return; A.toneG.gain.setTargetAtTime(0,A.ctx.currentTime,.004); }
+function setSound(on){ A.on=on; if(A.master) A.master.gain.setTargetAtTime(on?.85:0,A.ctx.currentTime,.05); $('#bSound').textContent=on?'Sound on':'Sound off'; $('#bSound').setAttribute('aria-pressed',on); }
+
+/* ============================== UI HELPERS ============================== */
+let toastT=null;
+function say(msg,ms=3400){ const t=$('#toast'); t.innerHTML=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),ms); }
+function cap(txt){ const c=$('#caption'); if(txt){ c.textContent=txt; c.classList.add('on'); } else c.classList.remove('on'); }
+function note(txt){ if(!S.journal.includes(txt)){ S.journal.push(txt); save(); const b=$('#bJournal'); b.style.borderColor='var(--amber)'; setTimeout(()=>b.style.borderColor='',2500); } }
+function fmtT(s){ s=Math.floor(s); const h=Math.floor(s/3600), m=Math.floor(s%3600/60), x=s%60; return (h?h+':':'')+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0'); }
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ============================== ITEMS ============================== */
+const ITEMS={};
+function give(id){
+  if(S.inv.includes(id)) return;
+  S.inv.push(id); S.taken[id]=true; sfx.pick(); renderInv(id); say(`Added to satchel: <b>${ITEMS[id].name}</b>`); save();
+}
+function renderInv(newId){
+  const box=$('#slots'); box.innerHTML='';
+  const n=Math.max(7,S.inv.length);
+  for(let i=0;i<n;i++){
+    const id=S.inv[i]; const b=document.createElement('button');
+    b.className='slot'+(id?'':' empty')+(id&&S.sel===id?' sel':'')+(id&&id===newId?' new':'');
+    if(id){ b.innerHTML=ITEMS[id].icon; b.title=ITEMS[id].name; b.setAttribute('aria-label',ITEMS[id].name);
+      b.onclick=()=>{ audioInit(); if(S.sel===id){ deselect(); examine(id); } else { S.sel=id; renderInv(); applySel(); say(`Holding the <b>${ITEMS[id].name}</b>. Click something to use it on, or click it again to examine.`,2800); } };
+      b.ondblclick=()=>{ deselect(); examine(id); };
+    } else { b.disabled=true; b.setAttribute('aria-hidden','true'); }
+    box.appendChild(b);
+  }
+}
+function deselect(){ S.sel=null; renderInv(); applySel(); }
+function applySel(){ document.querySelectorAll('.layer').forEach(l=>{ l.classList.toggle('selmode',!!S.sel); l.querySelectorAll('[data-use]').forEach(h=>h.classList.toggle('usable',!!S.sel && h.dataset.use.split(' ').includes(S.sel))); }); }
+
+/* ============================== MODAL ============================== */
+let onModalClose=null;
+function modal(title,html,mount,onClose){
+  $('#mcontent').innerHTML=(title?`<h2>${title}</h2>`:'')+html;
+  $('#modal').classList.add('on'); onModalClose=onClose||null;
+  if(mount) mount($('#mcontent'));
+  setTimeout(()=>$('#mclose').focus(),30);
+}
+function closeModal(){ $('#modal').classList.remove('on'); $('#mcontent').innerHTML=''; if(onModalClose){ const f=onModalClose; onModalClose=null; f(); } }
+$('#mclose').onclick=closeModal;
+$('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('#modal').classList.contains('on')) closeModal(); else if(S.sel) deselect(); else if(scenes[S.scene]&&scenes[S.scene].parent) goBack(); } });
+
+/* ============================== SCENE ENGINE ============================== */
+const scenes={};
+let cur='L0', busy=false;
+const L=id=>document.getElementById(id);
+function chain(id){ const a=[]; let s=id; while(s){ a.push(s); s=scenes[s]&&scenes[s].parent; } return a; }
+function mount(el,id){
+  const sc=scenes[id];
+  el.innerHTML=`<svg viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${esc(sc.title)}">${sc.render()}</svg>`;
+  el.dataset.scene=id;
+  el.querySelectorAll('[data-go],[data-act]').forEach(h=>{ h.classList.add('hot'); h.setAttribute('tabindex','0'); h.setAttribute('role','button'); if(h.dataset.cap) h.setAttribute('aria-label',h.dataset.cap);
+    if(!h.querySelector('.hl')){ try{ const bb=h.getBBox(); const r=document.createElementNS('http://www.w3.org/2000/svg','rect'); r.setAttribute('class','hl'); r.setAttribute('x',bb.x-6); r.setAttribute('y',bb.y-6); r.setAttribute('width',bb.width+12); r.setAttribute('height',bb.height+12); r.setAttribute('rx',8); h.appendChild(r);}catch(e){} } });
+  if(sc.mount) sc.mount(el);
+  if(sc.update) sc.update(el);
+  updateShips(el); applySel();
+}
+function stageOriginOf(h,el){
+  try{ const bb=h.getBBox(); const svg=el.querySelector('svg'); return {x:(bb.x+bb.width/2)/VW*100,y:(bb.y+bb.height/2)/VH*100}; }catch(e){ return {x:50,y:50}; }
+}
+function go(id,origin){
+  if(busy||id===S.scene||!scenes[id]) return;
+  busy=true; cap(null);
+  const fromId=S.scene, from=L(cur), nextL=cur==='L0'?'L1':'L0', to=L(nextL);
+  const deeper=!chain(fromId).includes(id);
+  if(scenes[fromId].leave) scenes[fromId].leave();
+  if(deeper){ S.origins[id]=origin||S.origins[id]||{x:50,y:50}; }
+  const o=deeper?S.origins[id]:(S.origins[fromId]||{x:50,y:50});
+  S.scene=id; save();
+  mount(to,id); to.classList.remove('hidden');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const D=reduce?250:700;
+  sfx.whoosh();
+  let a1,a2;
+  if(deeper){
+    from.style.transformOrigin=`${o.x}% ${o.y}%`;
+    a1=from.animate([{transform:'scale(1)',opacity:1},{transform:reduce?'scale(1)':'scale(2.6)',opacity:0}],{duration:D,easing:'cubic-bezier(.55,0,.8,.3)',fill:'forwards'});
+    to.style.transformOrigin=`${o.x}% ${o.y}%`;
+    a2=to.animate([{transform:reduce?'scale(1)':'scale(.55)',opacity:0},{transform:'scale(1)',opacity:1}],{duration:D,delay:D*.38,easing:'cubic-bezier(.2,.7,.2,1)',fill:'backwards'});
+  } else {
+    from.style.transformOrigin=`${o.x}% ${o.y}%`;
+    a1=from.animate([{transform:'scale(1)',opacity:1},{transform:reduce?'scale(1)':'scale(.5)',opacity:0}],{duration:D*.8,easing:'cubic-bezier(.5,0,.8,.4)',fill:'forwards'});
+    to.style.transformOrigin=`${o.x}% ${o.y}%`;
+    a2=to.animate([{transform:reduce?'scale(1)':'scale(2.4)',opacity:0},{transform:'scale(1)',opacity:1}],{duration:D,delay:D*.2,easing:'cubic-bezier(.2,.7,.2,1)',fill:'backwards'});
+  }
+  to.style.zIndex=2; from.style.zIndex=1;
+  let done=false;
+  const finish=()=>{ if(done) return; done=true; try{a1.cancel();}catch(e){} from.classList.add('hidden'); from.innerHTML=''; from.style.zIndex=''; cur=nextL; busy=false; $('#back').style.display=scenes[id].parent?'block':'none'; if(scenes[id].enter) scenes[id].enter(to); };
+  a2.onfinish=finish; setTimeout(finish,D*1.4+120);
+}
+function goBack(){ const p=scenes[S.scene].parent; if(p) go(p); }
+$('#back').onclick=()=>{ audioInit(); goBack(); };
+function curEl(){ return L(cur); }
+function refresh(){ const sc=scenes[S.scene]; if(sc&&sc.update) sc.update(curEl()); applySel(); save(); }
+
+// delegated interaction
+['L0','L1'].forEach(lid=>{
+  const el=L(lid);
+  el.addEventListener('click',e=>{
+    audioInit();
+    if(busy||el.dataset.scene!==S.scene) return;
+    const h=e.target.closest('[data-go],[data-act]'); if(!h) return;
+    const sc=scenes[S.scene];
+    if(h.dataset.drag==='1' && el._dragged){ el._dragged=false; return; }
+    if(S.sel){
+      const uses=(h.dataset.use||'').split(' ');
+      if(uses.includes(S.sel)){ const it=S.sel; deselect(); sc.use(it,h.dataset.act||h.dataset.go,h,el); return; }
+      if(h.dataset.act){ say(`The ${ITEMS[S.sel].name.toLowerCase()} is no use there.`); deselect(); return; }
+    }
+    if(h.dataset.go){ if(h.dataset.lock && !sc.canGo(h.dataset.go,h)) return; go(h.dataset.go,stageOriginOf(h,el)); return; }
+    if(h.dataset.act && sc.act) sc.act(h.dataset.act,h,el,e);
+  });
+  el.addEventListener('keydown',e=>{ if(S.scene==='console'&&e.key==='Enter') return; if((e.key==='Enter'||e.key===' ') && e.target.closest('[data-go],[data-act]')){ e.preventDefault(); e.target.closest('[data-go],[data-act]').dispatchEvent(new MouseEvent('click',{bubbles:true})); } });
+  el.addEventListener('mouseover',e=>{ const h=e.target.closest('[data-cap]'); if(h&&!busy) cap(h.dataset.cap); });
+  el.addEventListener('mouseout',e=>{ const h=e.target.closest('[data-cap]'); if(h&&!h.contains(e.relatedTarget)) cap(null); });
+});
+
+/* ============================== SHARED ART ============================== */
+function rainDrops(x,y,w,h,n,op=.45){
+  let s=`<g opacity="${op}" stroke="#a9c6d6" stroke-width="1.4" stroke-linecap="round">`;
+  for(let i=0;i<n;i++){ const px=x+Math.random()*(w+40), py=y+Math.random()*h*.8, l=rnd(10,22);
+    s+=`<line class="drop" x1="${px.toFixed(0)}" y1="${py.toFixed(0)}" x2="${(px-3).toFixed(0)}" y2="${(py+l).toFixed(0)}" style="animation-delay:${(-Math.random()).toFixed(2)}s;animation-duration:${rnd(.45,.7).toFixed(2)}s"/>`; }
+  return s+'</g>';
+}
+function shipG(){
+  return `<g class="ship-inner">
+    <path d="M-60 0 L60 0 L48 14 L-50 14Z" fill="#05090c"/>
+    <path d="M-20 0 V-70 M18 0 V-60" stroke="#05090c" stroke-width="3"/>
+    <path d="M-34 -6 H30 V-16 H-34Z" fill="#070c10"/>
+    <circle cx="-20" cy="-72" r="16" fill="url(#gLampGlow)" class="pulse"/><circle cx="-20" cy="-72" r="2.6" fill="#fff6dc"/>
+    <circle cx="-40" cy="-6" r="12" fill="#ff5a3c" opacity=".25"/><circle cx="-40" cy="-6" r="2.4" fill="#ff7a5c"/>
+    <circle cx="40" cy="-6" r="2" fill="#7dff9a" opacity=".55"/>
+    <rect x="-10" y="-12" width="5" height="3" fill="#ffd27a" opacity=".7"/><rect x="2" y="-12" width="5" height="3" fill="#ffd27a" opacity=".5"/>
+  </g>`;
+}
+function beamWedges(cx,cy,len,spread){
+  const d=`M${cx} ${cy} L${cx+len} ${cy-spread} L${cx+len} ${cy+spread}Z`;
+  return `<path class="sweep" d="${d}" fill="url(#gBeam)"/><path class="sweep" style="animation-delay:-3s" d="${d}" fill="url(#gBeam)" transform="translate(${2*cx} 0) scale(-1 1)"/>`;
+}
+// Sea view inside an arbitrary clip shape. box = sea area; hz = horizon y
+function seaView(id,x,y,w,h,clipD,opts={}){
+  const hz=y+h*(opts.hz||.55);
+  let clouds=''; for(let i=0;i<7;i++){ clouds+=`<ellipse cx="${x+rnd(0,w)}" cy="${y+rnd(0,(hz-y)*.7)}" rx="${rnd(w*.12,w*.3)}" ry="${rnd(18,46)}" fill="#33495a" opacity="${rnd(.25,.5).toFixed(2)}" filter="url(#soft)"/>`; }
+  let waves=''; for(let i=0;i<9;i++){ const yy=hz+ (y+h-hz)*(i/9)+6; waves+=`<path class="wave" style="animation-delay:${-i*.7}s;animation-duration:${4+i%3}s" d="M${x-60} ${yy} q ${w/16} -${4+i} ${w/8} 0 t ${w/8} 0 t ${w/8} 0 t ${w/8} 0 t ${w/8} 0 t ${w/8} 0 t ${w/8} 0 t ${w/8} 0 t ${w/8} 0" stroke="#5f8796" stroke-width="${1+i*.25}" fill="none" opacity="${.15+i*.04}"/>`; }
+  const rx=x+w*.18, ry=hz+(y+h-hz)*.45;
+  const rocks=`<g><path d="M${rx-w*.14} ${ry+30} L${rx-w*.09} ${ry-12} L${rx-w*.05} ${ry+4} L${rx} ${ry-26} L${rx+w*.05} ${ry} L${rx+w*.1} ${ry-8} L${rx+w*.16} ${ry+30}Z" fill="#05090b"/>
+    <ellipse cx="${rx}" cy="${ry+24}" rx="${w*.17}" ry="9" fill="#d9eef5" opacity=".35" class="pulse" filter="url(#soft2)"/>
+    <ellipse cx="${rx+w*.06}" cy="${ry+10}" rx="${w*.05}" ry="5" fill="#e6f5fa" opacity=".4" class="pulse" style="animation-delay:-.8s" filter="url(#soft2)"/></g>`;
+  const beam=(S.f.beam&&!opts.noBeam)?`<g opacity=".4" pointer-events="none">${beamWedges(x+w*.5,hz-h*.18,w*.9,h*.12)}</g>`:'';
+  return `<clipPath id="cp-${id}"><path d="${clipD}"/></clipPath>
+  <g clip-path="url(#cp-${id})">
+    <rect x="${x}" y="${y}" width="${w}" height="${hz-y+2}" fill="url(#gSky)"/>
+    ${clouds}
+    <rect x="${x}" y="${hz}" width="${w}" height="${y+h-hz}" fill="url(#gSea)"/>
+    ${waves}
+    <g class="ship" data-box="${x},${hz},${w},${y+h-hz}" data-s="${opts.ss||1}">${shipG()}</g>
+    ${rocks}
+    ${beam}
+    ${rainDrops(x,y,w,h,opts.drops||Math.round(w*h/9000))}
+    <rect class="winflash" x="${x}" y="${y}" width="${w}" height="${h}" fill="#dfeeff" opacity="0"/>
+  </g>`;
+}
+function shipP(){ return Math.min(1,S.t/(75*60)); }
+function updateShips(root){
+  (root||document).querySelectorAll('.ship').forEach(g=>{
+    const [x,hz,w,h]=g.dataset.box.split(',').map(Number), ss=+g.dataset.s;
+    let p=shipP(), X, Y, sc;
+    if(S.f.won){ X=x+w*1.05; Y=hz+h*.08; sc=.35*ss; g.style.transition='transform 6s ease-in'; }
+    else { X=x+w*(.92-.6*p); Y=hz+h*(.06+.3*p); sc=(.32+.75*p)*ss*(w/1000); }
+    if(!S.f.won) sc=Math.max(sc,.12);
+    g.setAttribute('transform',`translate(${X.toFixed(1)} ${Y.toFixed(1)}) scale(${sc.toFixed(3)})`);
+  });
+}
+function lightning(){
+  const el=curEl(); const f=$('#flash');
+  f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+  el.querySelectorAll('.winflash').forEach(r=>{ r.animate([{opacity:0},{opacity:.6},{opacity:.05},{opacity:.45},{opacity:0}],{duration:900,easing:'ease-out'}); });
+  setTimeout(()=>sfx.thunder(),rnd(500,1800));
+}
+function scheduleLightning(){ setTimeout(()=>{ if(S.started && !document.hidden) lightning(); scheduleLightning(); },rnd(14000,32000)); }
+
+// brass screw
+const screw=(x,y,r=6)=>`<circle cx="${x}" cy="${y}" r="${r}" fill="url(#gBrassR)" stroke="#4a3510" stroke-width="1"/><line x1="${x-r*.6}" y1="${y}" x2="${x+r*.6}" y2="${y}" stroke="#4a3510" stroke-width="1.4"/>`;
+
+
+/* ============================== ROOM 3 DEFS ============================== */
+document.querySelector('svg defs').insertAdjacentHTML('beforeend',`
+  <linearGradient id="gPan" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9cfcc"/><stop offset="1" stop-color="#9aa29f"/></linearGradient>
+  <linearGradient id="gPanD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a5358"/><stop offset="1" stop-color="#2a3034"/></linearGradient>
+  <linearGradient id="gRib" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7d8683"/><stop offset=".5" stop-color="#dfe4e1"/><stop offset="1" stop-color="#7d8683"/></linearGradient>
+  <linearGradient id="gHall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b3236"/><stop offset="1" stop-color="#3b4448"/></linearGradient>
+  <radialGradient id="gMars" cx=".4" cy=".35" r=".8"><stop offset="0" stop-color="#f0a060"/><stop offset=".55" stop-color="#b8582c"/><stop offset="1" stop-color="#5a2412"/></radialGradient>
+  <radialGradient id="gTeal" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#3fe0d0" stop-opacity=".55"/><stop offset="1" stop-color="#3fe0d0" stop-opacity="0"/></radialGradient>
+  <radialGradient id="gScreen" cx=".5" cy=".5" r=".75"><stop offset="0" stop-color="#0e2a2c"/><stop offset="1" stop-color="#050c0d"/></radialGradient>
+  <radialGradient id="gHot" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ff7a2a" stop-opacity=".6"/><stop offset="1" stop-color="#ff7a2a" stop-opacity="0"/></radialGradient>
+  <linearGradient id="gCyl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a4248"/><stop offset=".3" stop-color="#c8d0d4"/><stop offset=".6" stop-color="#7a848a"/><stop offset="1" stop-color="#2a3034"/></linearGradient>
+  <linearGradient id="gCylV" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a4248"/><stop offset=".3" stop-color="#c8d0d4"/><stop offset=".6" stop-color="#7a848a"/><stop offset="1" stop-color="#2a3034"/></linearGradient>
+  <pattern id="pHaz" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="40" height="40" fill="#f2c230"/><rect width="20" height="40" fill="#1b1d1f"/></pattern>
+  <pattern id="pGrate" width="30" height="30" patternUnits="userSpaceOnUse"><rect width="30" height="30" fill="#22282b"/><path d="M0 15H30M15 0V30" stroke="#3a4448" stroke-width="5"/></pattern>
+  <pattern id="pBolt" width="80" height="80" patternUnits="userSpaceOnUse"><circle cx="8" cy="8" r="3" fill="#7d8683"/></pattern>
+  <filter id="glowT" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`);
+
+/* ============================== PARAMETERS (seeded per playthrough) ============================== */
+const GM=3.71;
+function mulberry(a){ return ()=>{ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+const TEETH=[12,15,18,20,24,30,36,45,48,60,72];
+const CYL=[{d:25,r:21},{d:32,r:21},{d:40,r:16},{d:50,r:16},{d:63,r:12},{d:80,r:10}];
+let PRC=null;
+function P(){
+  if(PRC&&PRC.seed===S.seed) return PRC;
+  const r=mulberry(S.seed); const pick=a=>a[Math.floor(r()*a.length)]; const ri=(a,b,st=1)=>a+st*Math.floor(r()*((b-a)/st+1));
+  const o={seed:S.seed};
+  for(;;){ const ns=pick([6,7,8]), C=pick([4,5,6]), W=pick([120,140,160,180,200]), T=pick([3,4,5]); const V=+(3.7*ns).toFixed(1), ah=W*T/(V*.8), np=Math.ceil(ah/C-1e-9);
+    if(ns*np>12&&ns*np<=28&&np>=2&&(ns*(np-1)>12||true)){ Object.assign(o,{ns,C,W,T,V,ah,np}); break; } }
+  o.m=ri(4200,5200,50); o.mu=+(ri(30,40)/100).toFixed(2); o.seal=ri(800,1500,50); o.Freq=o.mu*o.m*GM+o.seal; o.Fmax=Math.round(o.Freq*1.8/100)*100;
+  o.Q=ri(60,110,5); o.Tc=ri(18,28); o.Tmax=70; o.cp=3.4; o.rho=1.06; o.disp=0.035; o.mdot=o.Q/(o.cp*(o.Tmax-o.Tc)); o.Lmin=o.mdot/o.rho*60; o.rpmReq=o.Lmin/o.disp;
+  o.H=ri(5,8); o.Vc=ri(20,32)/10; o.n_fill=21000*o.Vc/(8.314*293.15); o.kgBreath=.84*o.H/24*1.5; o.n_breath=o.kgBreath*1000/31.998; o.nO2=o.n_fill+o.n_breath; o.water=o.nO2*2*18.015;
+  for(;;){ const M=ri(600,1000,50), rd=pick([.08,.1,.12]), Tm=pick([14,16,18,20]); const imin=M*GM*rd/(Tm*.81); const vmin=Math.floor(1450*2*Math.PI*rd/(60*1.3*imin)*100)/100; const imax=1450*2*Math.PI*rd/(60*vmin);
+    const combos=[]; TEETH.forEach(a1=>TEETH.forEach(a2=>TEETH.forEach(b1=>TEETH.forEach(b2=>{ const i=(a2/a1)*(b2/b1); if(a2>a1&&b2>b1&&i>=imin&&i<=imax) combos.push([a1,a2,b1,b2,i]); }))));
+    if(combos.length>=1&&vmin>=.05&&imin<34){ Object.assign(o,{M,rd,Tm,imin,imax,vmin,combo:combos[0]}); break; } }
+  for(;;){ const Fb=ri(1100,1900,50); const lo=Fb/150, hi=280/20; const holes=[]; for(let k=1;k<=20;k++){ const a=k*.025, ma=(1-a)/a; if(ma>=lo&&ma<=hi) holes.push(k); } if(holes.length===1||holes.length===2){ o.Fb=Fb; o.maLo=lo; o.holes=holes; break; } }
+  const cy=CYL.find(c=>{ const A=Math.PI*(c.d/2000)**2; const p=o.Freq/A/1e6; return p<=Math.min(14,c.r)&&Math.ceil(p*10)/10*1e6*A<=o.Fmax; }); o.cylAns=cy; o.pAns=Math.ceil(o.Freq/(Math.PI*(cy.d/2000)**2)/1e5)/10;
+  PRC=o; return o;
+}
+const f1=(x,d=1)=>Number(x).toFixed(d), fk=x=>Math.round(x).toLocaleString('en-GB');
+
+/* ============================== ITEMS ============================== */
+const IC3=i=>`<svg viewBox="0 0 60 60">${i}</svg>`;
+Object.assign(ITEMS,{
+  spec:{name:'Door controller spec',icon:IC3(`<rect x="10" y="8" width="40" height="46" fill="#eef2f1" stroke="#7d8683" stroke-width="2"/>${[0,1,2,3,4,5,6].map(i=>`<rect x="14" y="${14+i*5.5}" width="22" height="2.5" fill="#556"/><rect x="40" y="${14+i*5.5}" width="5" height="2.5" fill="${i%3?'#3fbfb0':'#c0503a'}"/>`).join('')}`)},
+  flightplan:{name:'Ascent flight plan',icon:IC3(`<rect x="10" y="8" width="40" height="46" fill="#eef2f1" stroke="#7d8683" stroke-width="2"/><path d="M16 46 Q30 10 46 16" stroke="#c0503a" stroke-width="2.5" fill="none"/><circle cx="16" cy="46" r="3" fill="#b8582c"/>`)},
+});
+
+/* ============================== HELPERS ============================== */
+const MONO='JetBrains Mono, Consolas, monospace', UI='Chakra Petch, Barlow, sans-serif';
+const PLATES={};
+function plate(id,x,y,w,title,lines,fs=19){
+  PLATES[id]={title,lines}; const h=46+lines.length*(fs+7);
+  return `<g data-act="plate-${id}" data-cap="${title} — click to read"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="#d8ddda" stroke="#5a6266" stroke-width="3"/>${screw(x+12,y+12,4)}${screw(x+w-12,y+12,4)}<text x="${x+18}" y="${y+34}" font-family="${UI}" font-weight="700" font-size="${fs+1}" fill="#1b2226">${title}</text>${lines.map((l,i)=>`<text x="${x+18}" y="${y+62+i*(fs+7)}" font-family="${MONO}" font-size="${fs}" fill="#22292d">${l}</text>`).join('')}</g>`;
+}
+function openPlate(id){ const p=PLATES[id]; if(!p) return; modal(p.title,`<div class="paper" style="font-family:var(--tape);font-size:1.15rem;line-height:1.7">${p.lines.map(esc).join('<br>')}</div>`); note(`${p.title}: ${p.lines.join('; ')}`); }
+function hale(el,txt){ const n=el.querySelector('#hale'); if(n) n.textContent=txt; }
+const bayPowered=()=>!!S.f.reactor;
+function lightOverlay(){ return `<rect width="1600" height="900" fill="#2a0e00" opacity="${S.f.bat?0:.5}" style="mix-blend-mode:multiply" pointer-events="none"/>`; }
+
+/* ============================== HAB (overview) ============================== */
+scenes.hab={ title:'Ares Deep habitat module', parent:null,
+render(){
+  const streaks=Array.from({length:30},()=>`<line class="streak" x1="${rnd(780,1100)}" y1="${rnd(170,430)}" x2="${rnd(780,1100)+40}" y2="${rnd(170,430)+6}" stroke="#ffd2a0" stroke-width="${rnd(1,2.5).toFixed(1)}" opacity="${rnd(.2,.6).toFixed(2)}" style="animation-delay:${-rnd(0,3).toFixed(1)}s;animation-duration:${rnd(.8,1.8).toFixed(1)}s"/>`).join('');
+  return `<style>.streak{animation:streak 1.2s linear infinite}@keyframes streak{from{transform:translateX(-260px)}to{transform:translateX(260px)}}</style>
+  <g data-depth=".25">
+    <rect width="1600" height="770" fill="url(#gPan)"/>
+    ${Array.from({length:9},(_,i)=>`<rect x="${i*200-14}" y="0" width="28" height="770" fill="url(#gRib)"/>`).join('')}
+    <rect width="1600" height="770" fill="url(#pBolt)" opacity=".5"/>
+    <rect x="0" y="24" width="1600" height="22" fill="#2a3034"/><rect id="hbLight" x="10" y="30" width="1580" height="10" rx="5" fill="#ff7a2a"/>
+    <!-- window -->
+    <g data-act="window" data-cap="A viewport onto the storm">
+      <circle cx="940" cy="300" r="146" fill="#3a4246"/><clipPath id="hbWin"><circle cx="940" cy="300" r="128"/></clipPath>
+      <g clip-path="url(#hbWin)"><rect x="800" y="160" width="300" height="300" fill="url(#gMars)"/><path d="M800 380 Q880 350 940 372 T1080 360 V460 H800Z" fill="#5a2412"/>${streaks}</g>
+      <circle cx="940" cy="300" r="128" fill="none" stroke="#c9cfcc" stroke-width="10"/>${Array.from({length:12},(_,i)=>`<circle cx="${940+137*Math.cos(i*Math.PI/6)}" cy="${300+137*Math.sin(i*Math.PI/6)}" r="5" fill="#7d8683"/>`).join('')}
+    </g>
+    <!-- drone shelf -->
+    <rect x="70" y="300" width="290" height="14" fill="#4a5358"/>
+    <g data-act="drone" data-cap="A grounded inspection drone" id="hbDrone"><ellipse cx="215" cy="278" rx="62" ry="22" fill="#e8ece9" stroke="#5a6266" stroke-width="3"/>${[-1,1].map(s=>`<line x1="${215+s*30}" y1="270" x2="${215+s*90}" y2="252" stroke="#5a6266" stroke-width="5"/><ellipse cx="${215+s*90}" cy="248" rx="34" ry="6" fill="#2a3034" opacity=".7"/>`).join('')}<rect x="190" y="280" width="50" height="16" fill="#f2c230"/><circle cx="215" cy="270" r="7" fill="#3fe0d0"/></g>
+    <!-- battery hatch -->
+    <g data-go="battery" data-cap="Power bay B — battery hatch">
+      <rect x="80" y="380" width="270" height="350" rx="10" fill="url(#pHaz)"/><rect x="96" y="396" width="238" height="318" rx="6" fill="url(#gPanD)"/>
+      <text x="215" y="450" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="26" fill="#f2c230">POWER BAY B</text>
+      <rect x="140" y="480" width="150" height="190" rx="4" fill="#1b2226"/>${[0,1,2,3].map(i=>`<rect x="152" y="${492+i*44}" width="126" height="32" rx="4" fill="#2a3034"/>`).join('')}
+      <circle id="hbBatL" cx="300" cy="420" r="9" fill="#c0503a"/>
+    </g>
+    <!-- terminal -->
+    <g data-go="terminal" data-cap="HALE's main terminal and the door controller">
+      <rect x="400" y="170" width="370" height="490" rx="12" fill="url(#gPanD)" stroke="#1b2226" stroke-width="4"/>
+      <rect x="426" y="198" width="318" height="220" rx="6" fill="url(#gScreen)"/>
+      <g id="hbScreen"></g>
+      <rect x="426" y="440" width="318" height="90" rx="4" fill="#1b2226"/>${Array.from({length:24},(_,i)=>`<rect x="${436+(i%12)*25}" y="${452+Math.floor(i/12)*34}" width="20" height="26" rx="3" fill="#3a4448"/>`).join('')}
+      <rect x="430" y="550" width="310" height="90" rx="4" fill="#20282c"/><text x="585" y="602" text-anchor="middle" font-family="${UI}" font-size="20" fill="#7d8683">door controller</text>
+    </g>
+    <!-- locker -->
+    <g data-act="locker" data-cap="An EVA suit locker">
+      <rect x="810" y="470" width="260" height="300" rx="6" fill="#1b2226"/>
+      <g id="hbSuit"><ellipse cx="940" cy="530" rx="44" ry="40" fill="#e8ece9" stroke="#5a6266" stroke-width="3"/><ellipse cx="940" cy="530" rx="30" ry="24" fill="#c08a3a" opacity=".8"/><path d="M880 580 Q940 560 1000 580 L990 760 H890Z" fill="#e8ece9" stroke="#5a6266" stroke-width="3"/><rect id="hbPack" x="905" y="600" width="70" height="90" rx="6" fill="#5a6266" stroke="#2a3034" stroke-width="3"/><rect x="915" y="612" width="50" height="10" fill="#f2c230"/></g>
+      <g id="hbLockerDoor" class="tr" style="transform-origin:810px 620px;transform-box:view-box"><rect x="810" y="470" width="260" height="300" rx="6" fill="url(#gPan)" stroke="#5a6266" stroke-width="4"/><rect x="830" y="490" width="220" height="40" fill="#2a3034"/><text x="940" y="518" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="20" fill="#e8ece9">EVA 02</text><rect x="1040" y="600" width="12" height="60" rx="4" fill="#5a6266"/></g>
+    </g>
+    <!-- blast door -->
+    <g data-go="door" data-cap="Blast door to the engineering bay">
+      <rect x="1130" y="100" width="430" height="680" rx="14" fill="url(#pHaz)"/><rect x="1150" y="120" width="390" height="640" rx="8" fill="#20282c"/>
+      <g id="hbDoor" class="tr" style="transform-box:view-box"><rect x="1158" y="128" width="374" height="624" rx="6" fill="url(#gPan)" stroke="#5a6266" stroke-width="4"/>${[0,1,2,3].map(i=>`<rect x="1180" y="${170+i*140}" width="330" height="100" rx="6" fill="none" stroke="#7d8683" stroke-width="3"/>`).join('')}<text x="1345" y="450" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="32" fill="#2a3034">ENGINEERING</text></g>
+      <rect x="1290" y="60" width="110" height="34" rx="6" fill="#2a3034"/><circle id="hbDoorL" cx="1345" cy="77" r="9" fill="#c0503a"/>
+    </g>
+  </g>
+  <g data-depth=".5"><rect y="770" width="1600" height="130" fill="url(#pGrate)"/><rect y="766" width="1600" height="8" fill="#5a6266"/></g>
+  ${lightOverlay()}`;
+},
+mount(el){ const svg=el.querySelector('svg'); const groups=[...el.querySelectorAll('[data-depth]')]; el.onmousemove=e=>{ const r=svg.getBoundingClientRect(); if(!r.width) return; const dx=(e.clientX-r.left)/r.width-.5, dy=(e.clientY-r.top)/r.height-.5; groups.forEach(g=>{ const d=+g.dataset.depth; g.setAttribute('transform',`translate(${(-dx*20*d).toFixed(1)} ${(-dy*10*d).toFixed(1)})`); }); }; },
+update(el){
+  el.querySelector('#hbLight').setAttribute('fill',S.f.bat?'#eaf6ff':'#ff7a2a');
+  el.querySelector('#hbBatL').setAttribute('fill',S.f.bat?'#3fe0d0':'#c0503a');
+  el.querySelector('#hbDrone').style.opacity=S.f.drone?.45:1;
+  el.querySelector('#hbLockerDoor').style.transform=S.f.locker?'scaleX(.08)':'';
+  el.querySelector('#hbPack').style.display=S.f.suit?'none':'';
+  el.querySelector('#hbDoor').style.transform=S.f.door?'translateX(370px)':'';
+  el.querySelector('#hbDoorL').setAttribute('fill',S.f.door?'#3fe0d0':'#c0503a');
+  el.querySelector('#hbScreen').innerHTML=S.f.bat?`<text x="440" y="236" font-family="${MONO}" font-size="18" fill="#3fe0d0" filter="url(#glowT)">HALE v7.3 :: ONLINE</text><text x="440" y="266" font-family="${MONO}" font-size="16" fill="#3fe0d0" opacity=".8">${S.f.logic?'door logic: OK':'door logic: FAULT'}</text><text x="440" y="292" font-family="${MONO}" font-size="16" fill="#3fe0d0" opacity=".8">${S.f.door?'eng. bay: OPEN':'eng. bay: SEALED'}</text>`:'';
+},
+act(a){
+  if(a==='window'){ say('Ochre dust howls past the glass. Somewhere above it, the crew\'s orbiter is circling, waiting.'); return; }
+  if(a==='drone'){ if(S.f.drone){ say('The drone\'s battery bay is empty now.'); return; } S.f.drone=true; sfx.clunk(); note('Salvaged 8 cells from the inspection drone.'); say(`You unclip the drone's battery: <b>8 more cells</b>. ${cellsAvail()} cells available.`); refresh(); return; }
+  if(a==='locker'){ if(!S.f.locker){ S.f.locker=true; sfx.creak(); refresh(); say('The locker swings open. An EVA suit hangs inside, its life-support pack still attached.'); return; } if(!S.f.suit){ S.f.suit=true; sfx.clunk(); note('Salvaged 8 cells from the EVA suit pack.'); say(`You pull the cell module from the suit pack: <b>8 more cells</b>. ${cellsAvail()} cells available.`); refresh(); return; } say('Just the empty suit now.'); }
+}};
+const cellsAvail=()=>12+(S.f.drone?8:0)+(S.f.suit?8:0);
+
+/* ============================== BATTERY ============================== */
+scenes.battery={ title:'Power bay B', parent:'hab',
+render(){
+  const p=P();
+  return `<rect width="1600" height="900" fill="url(#gHall)"/><rect width="1600" height="900" fill="url(#pBolt)" opacity=".3"/>
+  <rect x="60" y="60" width="900" height="800" rx="14" fill="url(#gPanD)" stroke="#1b2226" stroke-width="5"/>
+  <text x="90" y="110" font-family="${UI}" font-weight="700" font-size="30" fill="#e8ece9">Battery tray</text>
+  <text x="90" y="140" font-family="${UI}" font-size="18" fill="#9aa29f">Rows are wired in series. Each column is one parallel string.</text>
+  <g id="btGrid"></g>
+  ${plate('cell',990,60,560,'Cell data plate',['Li-ion cell, 3.70 V nominal',`Capacity ${p.C}.0 Ah`,'Max depth of discharge: 80 %'])}
+  ${plate('load',990,250,560,'Load: HALE core',[`Input ${p.V.toFixed(1)} V DC (±3 %)`,`Draw ${p.W} W continuous`])}
+  ${plate('hale',990,410,560,'Crew note, taped to hatch',[`"HALE needs ${p.T} h on battery to`,'finish the restart checks. — Ines"'],18)}
+  <rect x="990" y="560" width="560" height="300" rx="10" fill="#1b2226" stroke="#3a4448" stroke-width="3"/>
+  ${[['Series',`s`],['Parallel',`p`]].map(([n,k],i)=>`<text x="1020" y="${612+i*80}" font-family="${UI}" font-size="22" fill="#e8ece9">${n}</text><g data-act="${k}-"><rect x="1150" y="${584+i*80}" width="50" height="44" rx="6" fill="#3a4448"/><text x="1175" y="${614+i*80}" text-anchor="middle" font-family="${UI}" font-size="28" fill="#fff">−</text></g><text id="bt${k}" x="1240" y="${616+i*80}" text-anchor="middle" font-family="${MONO}" font-size="30" fill="#3fe0d0"></text><g data-act="${k}+"><rect x="1280" y="${584+i*80}" width="50" height="44" rx="6" fill="#3a4448"/><text x="1305" y="${614+i*80}" text-anchor="middle" font-family="${UI}" font-size="28" fill="#fff">+</text></g>`).join('')}
+  <text id="btInfo" x="1020" y="760" font-family="${MONO}" font-size="20" fill="#9aa29f"></text><text id="btInfo2" x="1020" y="790" font-family="${MONO}" font-size="20" fill="#9aa29f"></text>
+  <g data-act="contactor" data-cap="Close the main contactor"><rect x="1380" y="584" width="150" height="124" rx="8" fill="#c0503a" stroke="#5a1a10" stroke-width="3"/><text x="1455" y="640" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="20" fill="#fff">CLOSE</text><text x="1455" y="668" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="20" fill="#fff">CONTACTOR</text></g>
+  <g id="btFx" pointer-events="none"></g>${lightOverlay()}`;
+},
+update(el){
+  if(!S.bs) S.bs=1; if(!S.bp) S.bp=1; const p=P();
+  const used=S.bs*S.bp, avail=cellsAvail();
+  el.querySelector('#bts').textContent=S.bs; el.querySelector('#btp').textContent=S.bp;
+  el.querySelector('#btInfo').textContent=`cells used ${used} / ${avail} available`;
+  el.querySelector('#btInfo2').textContent=`pack: ${(3.7*S.bs).toFixed(1)} V, ${S.bp*p.C} Ah`;
+  let g=''; const cw=Math.min(100,780/Math.max(S.bp,1)), chh=Math.min(80,640/Math.max(S.bs,1));
+  for(let c=0;c<S.bp;c++){ const x=100+c*(cw+12); g+=`<rect x="${x+cw/2-4}" y="170" width="8" height="${S.bs*chh+20}" fill="#b87333" opacity=".6"/>`; for(let r=0;r<S.bs;r++){ const y=180+r*chh; g+=`<rect x="${x}" y="${y}" width="${cw}" height="${chh-10}" rx="8" fill="${used<=avail?'#3a6ea5':'#7a2a20'}" stroke="#0e1a26" stroke-width="2"/><rect x="${x+6}" y="${y+4}" width="${cw-12}" height="8" rx="3" fill="#fff" opacity=".2"/><text x="${x+cw/2}" y="${y+chh/2}" text-anchor="middle" font-family="${MONO}" font-size="${Math.min(16,chh/3)}" fill="#e8ece9">3.7V</text>`; } }
+  g+=`<rect x="96" y="160" width="${S.bp*(cw+12)}" height="10" fill="#c0503a"/><rect x="96" y="${190+S.bs*chh}" width="${S.bp*(cw+12)}" height="10" fill="#222"/>`;
+  el.querySelector('#btGrid').innerHTML=g;
+},
+act(a,h,el){
+  const p=P();
+  if(a.startsWith('plate-')) return openPlate(a.slice(6));
+  if(S.f.bat && a!=='contactor'){ say('The pack is live. Leave it be.'); return; }
+  if(a==='s+'){ S.bs=Math.min(8,S.bs+1); } if(a==='s-'){ S.bs=Math.max(1,S.bs-1); } if(a==='p+'){ S.bp=Math.min(6,S.bp+1); } if(a==='p-'){ S.bp=Math.max(1,S.bp-1); }
+  if(a.length===2){ sfx.click(); refresh(); return; }
+  if(a==='contactor'){
+    if(S.f.bat){ say('Contactor closed. HALE is running on this pack.'); return; }
+    if(S.bs*S.bp>cellsAvail()){ say(`You only have ${cellsAvail()} cells. Look around the module for more.`); sfx.buzz(); return; }
+    const V=3.7*S.bs, fx=el.querySelector('#btFx'); sfx.clunk();
+    if(V>p.V*1.03){ sfx.spark(); fx.innerHTML=`<circle cx="1455" cy="400" r="200" fill="url(#gBeamDot)"><animate attributeName="opacity" from="1" to="0" dur=".8s" fill="freeze"/></circle>`; S.mistakes++; say(`<b>Overvoltage.</b> ${V.toFixed(1)} V hits a ${p.V.toFixed(1)} V input: the core's input fuse blows. HALE resets the fuse. Try again.`,5200); save(); return; }
+    if(V<p.V*.97){ S.mistakes++; say(`The core flickers and dies. ${V.toFixed(1)} V is too low for a ${p.V.toFixed(1)} V input.`,4200); sfx.buzz(); save(); return; }
+    const run=S.bp*p.C*V*.8/p.W;
+    if(run<p.T-1e-9){ S.mistakes++; say(`HALE boots, then warns: <b>usable energy ${(S.bp*p.C*V*.8).toFixed(0)} Wh, runtime ${run.toFixed(1)} h.</b> It needs ${p.T} h. It shuts down to protect the cells.`,6000); sfx.buzz(); save(); return; }
+    S.f.bat=true; sfx.tubeon(); sfx.success(); note(`Built a ${S.bs}S${S.bp}P battery: ${V.toFixed(1)} V, ${S.bp*p.C} Ah. HALE booted.`); say(`Lights come up. HALE: <i>"Runtime ${run.toFixed(1)} hours. Thank you. I was beginning to worry."</i>`,5200); refresh();
+  }
+}};
+
+/* ============================== TERMINAL / LOGIC ============================== */
+const SPECF=(A,B,C,D)=>(!D)&&((A&&B)||C)?1:0;
+const NG=6;
+scenes.terminal={ title:'HALE terminal and door controller', parent:'hab',
+render(){
+  const km=`<text x="70" y="200" font-family="${UI}" font-weight="700" font-size="22" fill="#e8ece9">K-map scratch pad</text>
+    <text x="70" y="226" font-family="${UI}" font-size="15" fill="#9aa29f">Click cells: blank → 1 → 0. For working only.</text>
+    <text x="102" y="268" font-family="${MONO}" font-size="16" fill="#f2c230">AB\\CD</text>
+    ${['00','01','11','10'].map((c,i)=>`<text x="${210+i*84}" y="268" text-anchor="middle" font-family="${MONO}" font-size="18" fill="#f2c230">${c}</text><text x="128" y="${318+i*84}" text-anchor="middle" font-family="${MONO}" font-size="18" fill="#f2c230">${c}</text>`).join('')}
+    ${Array.from({length:16},(_,k)=>{ const r=Math.floor(k/4), c=k%4; return `<g data-act="km-${k}"><rect x="${170+c*84}" y="${280+r*84}" width="80" height="80" fill="#0e1a1c" stroke="#3a4448" stroke-width="2"/><text id="kmt${k}" x="${210+c*84}" y="${332+r*84}" text-anchor="middle" font-family="${MONO}" font-size="34" fill="#3fe0d0"></text></g>`; }).join('')}
+    <g data-act="kmclear"><rect x="170" y="630" width="160" height="40" rx="6" fill="#3a4448"/><text x="250" y="657" text-anchor="middle" font-family="${UI}" font-size="18" fill="#e8ece9">Clear pad</text></g>`;
+  const gates=Array.from({length:NG},(_,i)=>{ const y=200+i*92; return `<g><text x="590" y="${y+40}" font-family="${MONO}" font-weight="700" font-size="22" fill="#e8ece9">G${i+1}</text>
+    <g data-act="gi-${i}-0" data-cap="G${i+1} input 1 — click to change"><rect x="640" y="${y}" width="80" height="34" rx="5" fill="#2a3034" stroke="#5a6266"/><text id="gs${i}0" x="680" y="${y+24}" text-anchor="middle" font-family="${MONO}" font-size="20" fill="#f2c230"></text></g>
+    <g data-act="gi-${i}-1" data-cap="G${i+1} input 2 — click to change"><rect x="640" y="${y+40}" width="80" height="34" rx="5" fill="#2a3034" stroke="#5a6266"/><text id="gs${i}1" x="680" y="${y+64}" text-anchor="middle" font-family="${MONO}" font-size="20" fill="#f2c230"></text></g>
+    <path d="M720 ${y+17} H770 M720 ${y+57} H770" stroke="#5a6266" stroke-width="4"/>
+    <g transform="translate(810 ${y+37})" fill="#d8ddda" stroke="#1b2226" stroke-width="3"><path d="M-40 -32 H0 A32 32 0 0 1 0 32 H-40Z"/><circle cx="40" cy="0" r="7"/></g>
+    <line x1="847" y1="${y+37}" x2="880" y2="${y+37}" stroke="#5a6266" stroke-width="4"/><circle id="gl${i}" cx="896" cy="${y+37}" r="13" fill="#1b2226" stroke="#5a6266" stroke-width="2"/></g>`; }).join('');
+  return `<rect width="1600" height="900" fill="#151b1e"/>
+  <rect x="40" y="20" width="1520" height="120" rx="8" fill="url(#gScreen)" stroke="#3a4448" stroke-width="3"/>
+  <text id="hale" x="70" y="72" font-family="${MONO}" font-size="21" fill="#3fe0d0" filter="url(#glowT)"></text><text id="hale2" x="70" y="110" font-family="${MONO}" font-size="19" fill="#3fe0d0" opacity=".75"></text>
+  <rect x="50" y="160" width="470" height="530" rx="8" fill="#1b2226"/>${km}
+  <g data-act="take-spec" data-cap="A printout in the terminal tray" id="tmSpec"><rect x="70" y="720" width="220" height="150" fill="#eef2f1" stroke="#7d8683" transform="rotate(-3 180 795)"/>${[0,1,2,3,4,5,6,7].map(i=>`<rect x="86" y="${742+i*14}" width="${120+(i*19)%60}" height="5" fill="#556" transform="rotate(-3 180 795)"/>`).join('')}</g>
+  <rect x="560" y="160" width="390" height="720" rx="8" fill="#1b2226"/><text x="580" y="188" font-family="${UI}" font-size="16" fill="#9aa29f">Six working NAND gates (one 7400 and a half)</text>
+  ${gates}
+  <rect x="980" y="160" width="580" height="720" rx="8" fill="#1b2226"/>
+  <text x="1000" y="196" font-family="${UI}" font-weight="700" font-size="22" fill="#e8ece9">Probe inputs</text>
+  ${['A airlock sealed','B pressure equal','C override','D fire alarm'].map((n,i)=>`<g data-act="pi-${i}"><rect x="1000" y="${216+i*58}" width="70" height="44" rx="22" fill="#2a3034" stroke="#5a6266"/><circle id="pk${i}" cx="1024" cy="${238+i*58}" r="16" fill="#9aa29f"/><text x="1086" y="${246+i*58}" font-family="${MONO}" font-size="20" fill="#e8ece9">${n}</text></g>`).join('')}
+  <g data-act="ysel" data-cap="Which gate drives the door output Y"><text x="1000" y="490" font-family="${UI}" font-size="20" fill="#e8ece9">Door output Y is wired to</text><rect x="1290" y="464" width="90" height="38" rx="6" fill="#2a3034" stroke="#f2c230"/><text id="ysrc" x="1335" y="491" text-anchor="middle" font-family="${MONO}" font-size="22" fill="#f2c230"></text></g>
+  <circle id="yl" cx="1470" cy="484" r="26" fill="#1b2226" stroke="#5a6266" stroke-width="3"/><text x="1470" y="534" text-anchor="middle" font-family="${MONO}" font-size="18" fill="#9aa29f">Y</text>
+  <g data-act="test"><rect x="1000" y="560" width="540" height="60" rx="8" fill="#3fbfb0"/><text x="1270" y="598" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="22" fill="#0e1a1c">RUN 16-ROW TEST</text></g>
+  ${Array.from({length:16},(_,k)=>`<rect id="tr${k}" x="${1004+k*33.5}" y="650" width="28" height="40" rx="4" fill="#2a3034"/><text x="${1018+k*33.5}" y="712" text-anchor="middle" font-family="${MONO}" font-size="13" fill="#9aa29f">${k}</text>`).join('')}
+  <text x="1000" y="760" font-family="${UI}" font-size="17" fill="#9aa29f">An unconnected input floats HIGH (reads as 1).</text>
+  <text x="1000" y="790" font-family="${UI}" font-size="17" fill="#9aa29f">Row number = ABCD read as a binary number.</text>`;
+},
+srcs(i){ return ['—','A','B','C','D',...Array.from({length:i},(_,k)=>'G'+(k+1))]; },
+evalC(inp){ const out=[]; for(let i=0;i<NG;i++){ const v=S.net[i].map(s=>s==='—'?1:'ABCD'.includes(s)?inp['ABCD'.indexOf(s)]:out[+s.slice(1)-1]); out.push(v[0]&&v[1]?0:1); } return out; },
+update(el){
+  if(!S.net) S.net=Array.from({length:NG},()=>['—','—']); if(!S.km) S.km=Array(16).fill(''); if(!S.pi) S.pi=[0,0,0,0]; if(!S.ysel) S.ysel=NG-1;
+  for(let i=0;i<NG;i++) for(let j=0;j<2;j++) el.querySelector(`#gs${i}${j}`).textContent=S.net[i][j];
+  const o=this.evalC(S.pi); o.forEach((v,i)=>el.querySelector('#gl'+i).setAttribute('fill',S.f.bat?(v?'#ffb000':'#1b2226'):'#1b2226'));
+  S.pi.forEach((v,i)=>{ const k=el.querySelector('#pk'+i); k.setAttribute('cx',v?1046:1024); k.setAttribute('fill',v?'#3fe0d0':'#9aa29f'); });
+  el.querySelector('#ysrc').textContent='G'+(S.ysel+1); el.querySelector('#yl').setAttribute('fill',S.f.bat&&o[S.ysel]?'#3fe0d0':'#1b2226');
+  S.km.forEach((v,k)=>el.querySelector('#kmt'+k).textContent=v);
+  el.querySelector('#tmSpec').style.display=S.taken.spec?'none':'';
+  hale(el,!S.f.bat?'':S.f.logic?'HALE> Door logic verified. Hydraulics are yours.':'HALE> Door controller board burned out in the surge. Rebuild its logic.');
+  el.querySelector('#hale2').textContent=!S.f.bat?'':S.f.logic?'':'HALE> The spec printout is in the tray. Six NAND gates still work.';
+},
+act(a,h,el){
+  if(a==='take-spec'){ give('spec'); refresh(); return; }
+  if(a.startsWith('km-')){ const k=+a.slice(3); S.km[k]=S.km[k]===''?'1':S.km[k]==='1'?'0':''; sfx.tick(); refresh(); return; }
+  if(a==='kmclear'){ S.km=Array(16).fill(''); refresh(); return; }
+  if(!S.f.bat){ say('The terminal is dead. No power.'); return; }
+  if(S.f.logic&&a!=='test'&&!a.startsWith('pi-')){ say('The door logic is verified. HALE has locked the board.'); return; }
+  if(a.startsWith('gi-')){ const [,i,j]=a.split('-').map(Number); const L=this.srcs(i); S.net[i][j]=L[(L.indexOf(S.net[i][j])+1)%L.length]; sfx.click(); refresh(); return; }
+  if(a.startsWith('pi-')){ S.pi[+a.slice(3)]^=1; sfx.click(); refresh(); return; }
+  if(a==='ysel'){ S.ysel=(S.ysel+1)%NG; sfx.click(); refresh(); return; }
+  if(a==='test'){ if(this._run) return; this._run=true; let ok=true;
+    for(let k=0;k<16;k++) setTimeout(()=>{ const inp=[(k>>3)&1,(k>>2)&1,(k>>1)&1,k&1]; S.pi=inp; const y=this.evalC(inp)[S.ysel]; const pass=y===SPECF(...inp); if(!pass) ok=false; el.querySelector('#tr'+k).setAttribute('fill',pass?'#3fbfb0':'#c0503a'); this.update(el); el.querySelector('#tr'+k).setAttribute('fill',pass?'#3fbfb0':'#c0503a'); pass?sfx.tick():sfx.buzz(); },200+k*160);
+    setTimeout(()=>{ this._run=false; for(let k=0;k<16;k++){} if(ok){ S.f.logic=true; sfx.success(); note('Rebuilt the door interlock with NAND gates. All 16 rows pass.'); say('All sixteen rows pass. HALE: <i>"Interlock logic verified. The hydraulics are yours."</i>',5000); } else { S.mistakes++; say('At least one row fails. Red squares mark the rows to look at.'); } save(); const keep=[...el.querySelectorAll('[id^=tr]')].map(n=>n.getAttribute('fill')); this.update(el); el.querySelectorAll('[id^=tr]').forEach((n,i)=>n.setAttribute('fill',keep[i])); },200+16*160+200);
+  }
+}};
+/* ============================== BLAST DOOR / HYDRAULICS ============================== */
+scenes.door={ title:'Blast door hydraulics', parent:'hab',
+render(){
+  const p=P();
+  const rack=CYL.map((c,i)=>{ const x=1130+i*73, w=10+c.d*.45; return `<g data-act="cyl-${i}" data-cap="Cylinder: ${c.d} mm bore, rated ${c.r} MPa" id="ck${i}"><rect x="${x}" y="610" width="64" height="250" rx="6" fill="#1b2226" stroke="#3a4448"/><rect class="cylb" x="${x+32-w/2}" y="640" width="${w}" height="170" rx="${w/3}" fill="url(#gCylV)"/><text x="${x+32}" y="836" text-anchor="middle" font-family="${MONO}" font-size="17" fill="#e8ece9">Ø${c.d}</text><text x="${x+32}" y="854" text-anchor="middle" font-family="${MONO}" font-size="13" fill="#9aa29f">${c.r} MPa</text></g>`; }).join('');
+  return `<rect width="1600" height="900" fill="url(#gHall)"/>
+  <rect x="30" y="40" width="800" height="820" rx="14" fill="url(#pHaz)"/><rect x="50" y="60" width="760" height="780" rx="8" fill="#0d1113"/>
+  <text x="430" y="460" text-anchor="middle" font-family="${UI}" font-size="24" fill="#3a4448">engineering bay</text>
+  <g id="drPanel" data-act="doorleaf" data-cap="The blast door" style="transform-box:view-box"><rect x="56" y="66" width="748" height="768" rx="6" fill="url(#gPan)" stroke="#5a6266" stroke-width="5"/>${[0,1,2,3,4].map(i=>`<rect x="90" y="${100+i*146}" width="680" height="110" rx="6" fill="none" stroke="#7d8683" stroke-width="3"/>`).join('')}<text x="430" y="470" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="44" fill="#2a3034">ENGINEERING</text><rect x="760" y="420" width="60" height="80" fill="#3a4448"/></g>
+  <!-- actuator -->
+  <rect x="830" y="400" width="270" height="120" rx="10" fill="#1b2226" stroke="#3a4448" stroke-width="3"/>
+  <g id="drRod"></g><g id="drCyl"></g><g id="drFx" pointer-events="none"></g>
+  ${plate('door',1120,30,450,'Door data plate',[`Mass ${fk(p.m)} kg`,`Static friction μs ${p.mu.toFixed(2)}`,`Seal drag ${fk(p.seal)} N`,`Track max thrust ${fk(p.Fmax)} N`],17)}
+  ${plate('pump',1120,238,450,'Hydraulic pump',['Max supply pressure 14.0 MPa'],17)}
+  <rect x="1120" y="330" width="290" height="250" rx="10" fill="#1b2226" stroke="#3a4448" stroke-width="3"/>
+  <text x="1265" y="362" text-anchor="middle" font-family="${UI}" font-size="18" fill="#9aa29f">Regulator setting</text>
+  <path d="M1185 470 A80 80 0 0 1 1345 470" fill="none" stroke="#3a4448" stroke-width="14"/><line id="drNeedle" x1="1265" y1="470" x2="1265" y2="402" stroke="#f2c230" stroke-width="5"/>
+  ${ledText(1265,520,'',34,'#3fe0d0','drP')}
+  ${[['-1','−1'],['-0.1','−.1'],['0.1','+.1'],['1','+1']].map(([v,t],i)=>`<g data-act="pr${v}"><rect x="${1136+i*68}" y="534" width="60" height="36" rx="5" fill="#3a4448"/><text x="${1166+i*68}" y="559" text-anchor="middle" font-family="${MONO}" font-size="18" fill="#fff">${t}</text></g>`).join('')}
+  <g data-act="actuate" data-cap="Actuate the door"><rect x="1430" y="330" width="140" height="250" rx="10" fill="#1b2226" stroke="#3a4448" stroke-width="3"/><g id="drLev" class="tr" style="transform-origin:1500px 540px;transform-box:view-box"><line x1="1500" y1="540" x2="1500" y2="380" stroke="#9aa29f" stroke-width="16" stroke-linecap="round"/><circle cx="1500" cy="372" r="22" fill="#c0503a"/></g><text x="1500" y="568" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="18" fill="#e8ece9">ACTUATE</text></g>
+  <text x="1130" y="600" font-family="${UI}" font-size="16" fill="#9aa29f">Cylinder rack — click to mount</text>
+  ${rack}${lightOverlay()}`;
+},
+update(el){
+  const c=S.cyl!=null?CYL[S.cyl]:null; S.pset=S.pset||0;
+  el.querySelector('#drP').textContent=S.pset.toFixed(1)+' MPa';
+  el.querySelector('#drNeedle').setAttribute('transform',`rotate(${-80+S.pset/14*160} 1265 470)`);
+  CYL.forEach((_,i)=>el.querySelector('#ck'+i).style.opacity=S.cyl===i?.3:1);
+  el.querySelector('#drCyl').innerHTML=c?`<rect x="890" y="${460-(10+c.d*.45)/2}" width="190" height="${10+c.d*.45}" rx="${(10+c.d*.45)/3}" fill="url(#gCyl)"/><text x="985" y="${470+(10+c.d*.45)/2+22}" text-anchor="middle" font-family="${MONO}" font-size="16" fill="#9aa29f">Ø${c.d} mm</text>`:`<text x="965" y="466" text-anchor="middle" font-family="${UI}" font-size="18" fill="#5a6266">no cylinder</text>`;
+  el.querySelector('#drRod').innerHTML=c?`<rect id="rod" x="800" y="454" width="95" height="12" fill="#c8d0d4"/>`:'';
+  el.querySelector('#drPanel').style.transform=S.f.door?'translateX(-700px)':'';
+},
+act(a,h,el){
+  if(a.startsWith('plate-')) return openPlate(a.slice(6));
+  if(a==='doorleaf'){ if(S.f.door) go('bay',{x:27,y:50}); else say('A metre of composite and steel. It rides on a rail and is pushed by the hydraulic cylinder.'); return; }
+  if(!S.f.logic){ say('The door controller won\'t allow hydraulic pressure. Fix its logic at HALE\'s terminal first.'); sfx.buzz(); return; }
+  if(S.f.door) return;
+  if(a.startsWith('cyl-')){ S.cyl=+a.slice(4); sfx.clunk(); say(`Mounted the Ø${CYL[S.cyl].d} mm cylinder.`,1800); refresh(); return; }
+  if(a.startsWith('pr')){ S.pset=Math.max(0,Math.min(14,Math.round((S.pset+parseFloat(a.slice(2)))*10)/10)); sfx.tick(); refresh(); return; }
+  if(a==='actuate'){
+    if(S.cyl==null){ say('No cylinder is mounted.'); return; }
+    const p=P(), c=CYL[S.cyl], A=Math.PI*(c.d/2000)**2, F=S.pset*1e6*A; const lev=el.querySelector('#drLev'); lev.style.transform='rotate(40deg)'; setTimeout(()=>lev.style.transform='',900); sfx.clunk(); nz({dur:1.5,freq:300,q:1,gain:.2,attack:.3});
+    const panel=el.querySelector('#drPanel'), fx=el.querySelector('#drFx');
+    if(S.pset>c.r){ setTimeout(()=>{ sfx.spark(); nz({dur:1.2,freq:2000,q:.5,gain:.4}); fx.innerHTML=`<g>${Array.from({length:14},()=>`<circle cx="${980+rnd(-60,60)}" cy="${460+rnd(-30,30)}" r="${rnd(4,12)}" fill="#c8a040"><animate attributeName="cy" by="${rnd(80,200)}" dur="1s" fill="freeze"/><animate attributeName="opacity" from="1" to="0" dur="1.1s" fill="freeze"/></circle>`).join('')}</g>`; S.cyl=null; S.mistakes++; refresh(); say(`<b>Seal failure.</b> ${S.pset.toFixed(1)} MPa is above this cylinder's ${c.r} MPa rating. Oil sprays across the deck. The cylinder is ruined.`,5200); },500); save(); return; }
+    if(F<p.Freq){ panel.animate([{transform:'translateX(0)'},{transform:`translateX(${-Math.max(4,40*F/p.Freq)}px)`},{transform:'translateX(0)'}],{duration:1600,easing:'ease-in-out'}); setTimeout(()=>sfx.clunk(),1500); S.mistakes++; say(`The door groans and shifts a few centimetres, then slides back. The cylinder pushes ${fk(F)} N. It isn't enough to break the door free.`,5200); save(); return; }
+    if(F>p.Fmax){ panel.animate([{transform:'translateX(0)'},{transform:'translateX(-30px)'},{transform:'translateX(-24px)'},{transform:'translateX(-30px)'}],{duration:900,fill:'forwards'}); setTimeout(()=>{ sfx.spark(); sfx.rattle(); },700); S.mistakes++; say(`<b>Track overload.</b> ${fk(F)} N lurches the door sideways and it jams on its rail, above the ${fk(p.Fmax)} N limit. HALE backs the pressure off and frees it.`,5600); setTimeout(()=>panel.getAnimations().forEach(x=>x.cancel()),2600); save(); return; }
+    setTimeout(()=>{ sfx.slide(); sfx.creak(); S.f.door=true; note(`Opened the blast door: Ø${c.d} mm at ${S.pset.toFixed(1)} MPa gave ${fk(F)} N (needed ${fk(p.Freq)} N, limit ${fk(p.Fmax)} N).`); refresh(); say(`The door breaks free and rolls aside. ${fk(F)} N was enough. The engineering bay lies beyond.`,5000); },400);
+  }
+}};
+
+/* ============================== ENGINEERING BAY ============================== */
+scenes.bay={ title:'Engineering bay', parent:'hab',
+render(){
+  return `<rect width="1600" height="900" fill="#20272b"/>
+  <rect x="0" y="0" width="1600" height="700" fill="url(#gPanD)"/>${Array.from({length:9},(_,i)=>`<rect x="${i*200-10}" y="0" width="20" height="700" fill="#3a4448"/>`).join('')}
+  <rect x="0" y="16" width="1600" height="14" fill="${bayPowered()?'#eaf6ff':'#ff7a2a'}"/>
+  <g data-act="propdoor" data-cap="Propellant bay — sealed"><rect x="620" y="80" width="360" height="300" rx="10" fill="url(#pHaz)"/><rect x="640" y="100" width="320" height="260" rx="6" fill="#2a3034"/><text x="800" y="220" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="30" fill="#f2c230">PROPELLANT</text><text x="800" y="258" text-anchor="middle" font-family="${UI}" font-size="20" fill="#9aa29f">phase 4, sealed</text></g>
+  <rect y="700" width="1600" height="200" fill="url(#pGrate)"/>
+  <g data-go="reactor" data-cap="The compact fission reactor and its coolant loop">
+    <rect x="80" y="160" width="300" height="560" rx="150" fill="url(#gCylV)" stroke="#1b2226" stroke-width="4"/><rect x="120" y="300" width="220" height="60" fill="url(#pHaz)"/><text x="230" y="460" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="28" fill="#1b2226">KRUSTY-4</text>
+    <path d="M380 260 H520 V120 H600 M380 620 H540" stroke="#5a6266" stroke-width="22" fill="none"/>
+    <circle cx="230" cy="560" r="30" fill="${S.f.reactor?'#3fe0d0':'#c0503a'}"/>
+    ${S.f.reactor?`<circle cx="230" cy="440" r="260" fill="url(#gTeal)" opacity=".5"/>`:''}
+  </g>
+  <g data-go="electro" data-cap="The electrolysis unit for oxygen">
+    <rect x="460" y="430" width="300" height="290" rx="10" fill="url(#gPan)" stroke="#5a6266" stroke-width="4"/>${[0,1,2,3,4,5].map(i=>`<rect x="490" y="${460+i*30}" width="140" height="22" fill="#3a6ea5"/>`).join('')}<rect x="660" y="460" width="34" height="230" rx="16" fill="#e8ece9" stroke="#5a6266"/><rect x="706" y="460" width="34" height="230" rx="16" fill="#e8ece9" stroke="#5a6266"/>
+    <circle cx="610" cy="700" r="10" fill="${S.f.electro?'#3fe0d0':'#c0503a'}"/>
+    <rect x="470" y="740" width="220" height="40" fill="#4a5358"/><rect x="490" y="720" width="120" height="24" fill="#eef2f1" transform="rotate(-4 550 732)"/>
+  </g>
+  <g data-go="crane" data-cap="The cargo crane and the fuel cask">
+    <rect x="900" y="120" width="30" height="600" fill="#f2c230"/><rect x="1500" y="120" width="30" height="600" fill="#f2c230"/><rect x="880" y="100" width="670" height="44" fill="#f2c230" stroke="#1b2226" stroke-width="3"/>
+    <rect x="1150" y="144" width="110" height="70" rx="6" fill="#3a4448"/><line x1="1205" y1="214" x2="1205" y2="${S.f.crane?360:540}" stroke="#1b2226" stroke-width="5"/>
+    <g transform="translate(0 ${S.f.crane?-180:0})"><rect x="1120" y="540" width="170" height="190" rx="20" fill="url(#gCylV)" stroke="#1b2226" stroke-width="4"/><rect x="1120" y="600" width="170" height="40" fill="url(#pHaz)"/></g>
+    <circle cx="1460" cy="180" r="10" fill="${S.f.crane?'#3fe0d0':'#c0503a'}"/>
+  </g>`;
+},
+act(a){ if(a==='propdoor') say(phase3Done()?'The propellant bay is next. That\'s where Part 2 begins.':'Sealed. HALE won\'t open the propellant bay until the reactor, oxygen and crane are all ready.'); }
+};
+const phase3Done=()=>S.f.reactor&&S.f.electro&&S.f.crane&&S.f.brake;
+
+/* ============================== REACTOR COOLING ============================== */
+scenes.reactor={ title:'Reactor coolant loop', parent:'bay',
+render(){
+  const p=P();
+  return `<rect width="1600" height="900" fill="#1a2024"/>
+  <rect x="1190" y="40" width="380" height="420" fill="#5a2412"/><rect x="1190" y="40" width="380" height="420" fill="url(#gMars)" opacity=".7"/><text x="1380" y="80" text-anchor="middle" font-family="${UI}" font-size="20" fill="#ffd2a0">outside: radiator panels</text>${Array.from({length:7},(_,i)=>`<rect x="${1220+i*48}" y="110" width="34" height="320" fill="#c9cfcc" stroke="#5a6266"/>`).join('')}
+  <rect x="1180" y="30" width="16" height="440" fill="#3a4448"/>
+  <path id="rcHot" d="M380 220 H1260 V110" stroke="#c0503a" stroke-width="26" fill="none" opacity=".85"/>
+  <path id="rcCold" d="M1500 430 V560 H900 M760 680 H380" stroke="#3a7ec0" stroke-width="26" fill="none" opacity=".85"/>
+  <path id="rcHotF" d="M380 220 H1260 V110" stroke="#ffd2b0" stroke-width="6" fill="none" stroke-dasharray="14 30"/>
+  <path id="rcColdF" d="M1500 430 V560 H900 M760 680 H380" stroke="#cfe6ff" stroke-width="6" fill="none" stroke-dasharray="14 30"/>
+  <g><rect x="60" y="120" width="320" height="680" rx="160" fill="url(#gCylV)" stroke="#1b2226" stroke-width="4"/><rect x="100" y="380" width="240" height="60" fill="url(#pHaz)"/><circle id="rcCore" cx="220" cy="560" r="70" fill="#2a3034"/></g>
+  ${plate('reactor',90,760,520,'Reactor plate',[`Waste heat at restart: ${p.Q} kW`,`Max coolant outlet: ${p.Tmax} °C`],17).replace('y="760"','y="760"')}
+  <!-- pump -->
+  <g><circle cx="830" cy="620" r="80" fill="url(#gPanD)" stroke="#1b2226" stroke-width="4"/><g id="rcImp" style="transform-origin:830px 620px;transform-box:view-box">${[0,1,2,3,4,5].map(i=>`<path d="M830 620 L${830+60*Math.cos(i*Math.PI/3)} ${620+60*Math.sin(i*Math.PI/3)}" stroke="#9aa29f" stroke-width="10"/>`).join('')}</g><circle cx="830" cy="620" r="14" fill="#c9cfcc"/></g>
+  <path d="M760 680 V640 M900 560 V600" stroke="#3a7ec0" stroke-width="26"/>
+  ${plate('pump3',640,30,500,'Coolant pump',['Displacement 0.035 L per revolution','Max speed 3000 rpm'],17)}
+  ${plate('coolant',640,170,500,'Coolant: 50 % propylene glycol',[`c = ${p.cp.toFixed(2)} kJ/(kg·K)   ρ = ${p.rho.toFixed(2)} kg/L`],17)}
+  <!-- gauges -->
+  <g><circle cx="1050" cy="400" r="62" fill="#e8ece9" stroke="#3a4448" stroke-width="6"/><line id="rcG1" x1="1050" y1="400" x2="1050" y2="350" stroke="#c0503a" stroke-width="4"/><text x="1050" y="440" text-anchor="middle" font-family="${MONO}" font-size="16" fill="#1b2226" id="rcT1"></text><text x="1050" y="485" text-anchor="middle" font-family="${UI}" font-size="16" fill="#e8ece9">outlet (hot leg)</text></g>
+  <g><circle cx="1050" cy="720" r="62" fill="#e8ece9" stroke="#3a4448" stroke-width="6"/><line x1="1050" y1="720" x2="1050" y2="670" stroke="#3a7ec0" stroke-width="4" transform="rotate(${-120+p.Tc/100*240} 1050 720)"/><text x="1050" y="760" text-anchor="middle" font-family="${MONO}" font-size="16" fill="#1b2226">${p.Tc} °C</text><text x="1050" y="805" text-anchor="middle" font-family="${UI}" font-size="16" fill="#e8ece9">return from radiator</text></g>
+  <!-- control -->
+  <rect x="1190" y="500" width="380" height="380" rx="10" fill="#1b2226" stroke="#3a4448" stroke-width="3"/>
+  <text x="1380" y="536" text-anchor="middle" font-family="${UI}" font-size="18" fill="#9aa29f">Pump speed</text>${ledText(1380,600,'',46,'#3fe0d0','rcRpm')}
+  ${[['-100','−100'],['-10','−10'],['-1','−1'],['1','+1'],['10','+10'],['100','+100']].map(([v,t],i)=>`<g data-act="rp${v}"><rect x="${1206+(i%3)*120}" y="${620+Math.floor(i/3)*50}" width="108" height="40" rx="5" fill="#3a4448"/><text x="${1260+(i%3)*120}" y="${647+Math.floor(i/3)*50}" text-anchor="middle" font-family="${MONO}" font-size="18" fill="#fff">${t}</text></g>`).join('')}
+  <g data-act="start"><rect x="1206" y="736" width="348" height="56" rx="8" fill="#3fbfb0"/><text x="1380" y="772" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="20" fill="#0e1a1c">START PUMP · RAISE POWER</text></g>
+  <text id="rcMsg" x="1380" y="830" text-anchor="middle" font-family="${MONO}" font-size="17" fill="#9aa29f"></text><text id="rcFlow" x="1380" y="860" text-anchor="middle" font-family="${MONO}" font-size="17" fill="#9aa29f"></text>`;
+},
+gauge(el,T){ el.querySelector('#rcG1').setAttribute('transform',`rotate(${-120+Math.min(T,110)/110*240} 1050 400)`); el.querySelector('#rcT1').textContent=T.toFixed(1)+' °C'; },
+update(el){ S.rpm=S.rpm||0; el.querySelector('#rcRpm').textContent=S.rpm+' rpm'; const p=P(); this.gauge(el,S.f.reactor?S.Tss:p.Tc); el.querySelector('#rcCore').setAttribute('fill',S.f.reactor?'#3fe0d0':'#2a3034');
+  ['rcHotF','rcColdF'].forEach(id=>{ const n=el.querySelector('#'+id); n.getAnimations().forEach(x=>x.cancel()); if(S.f.reactor) n.animate([{strokeDashoffset:0},{strokeDashoffset:-44}],{duration:Math.max(150,60000/S.rpm),iterations:Infinity}); });
+  const imp=el.querySelector('#rcImp'); imp.getAnimations().forEach(x=>x.cancel()); if(S.f.reactor) imp.animate([{transform:'rotate(0)'},{transform:'rotate(360deg)'}],{duration:Math.max(80,60000/S.rpm*4),iterations:Infinity});
+  if(S.f.reactor){ el.querySelector('#rcMsg').textContent=`steady outlet ${S.Tss.toFixed(1)} °C`; el.querySelector('#rcFlow').textContent=`flow ${(S.rpm*.035).toFixed(1)} L/min`; }
+},
+act(a,h,el){
+  if(a.startsWith('plate-')) return openPlate(a.slice(6));
+  if(S.f.reactor){ say('The reactor is online and the loop is stable. Leave it running.'); return; }
+  if(a.startsWith('rp')){ S.rpm=Math.max(0,Math.min(3000,S.rpm+parseInt(a.slice(2)))); sfx.tick(); refresh(); return; }
+  if(a==='start'){
+    if(this._run) return; const p=P(); if(S.rpm<=0){ say('The pump is set to zero.'); return; }
+    this._run=true; const L=S.rpm*p.disp, md=L*p.rho/60, Tss=p.Tc+p.Q/(md*p.cp); sfx.clunk(); nz({dur:4,freq:200,q:1,gain:.15,attack:.5});
+    el.querySelector('#rcFlow').textContent=`flow ${L.toFixed(1)} L/min`;
+    const imp=el.querySelector('#rcImp'); imp.animate([{transform:'rotate(0)'},{transform:'rotate(360deg)'}],{duration:Math.max(80,60000/S.rpm*4),iterations:12});
+    let t=0; const shock=S.rpm>p.rpmReq*1.3; const iv=setInterval(()=>{ t+=.1; const T=p.Tc+(Tss-p.Tc)*(1-Math.exp(-t*1.2)); this.gauge(el,T); el.querySelector('#rcMsg').textContent=`outlet ${T.toFixed(1)} °C`;
+      if(T>p.Tmax){ clearInterval(iv); this._run=false; sfx.alarm(); el.querySelector('#rcCore').setAttribute('fill','#c0503a'); S.mistakes++; say(`<b>SCRAM.</b> Outlet passed ${p.Tmax} °C. At this flow the coolant would settle at ${Tss.toFixed(1)} °C. More flow needed.`,5600); setTimeout(()=>{ this.gauge(el,p.Tc); el.querySelector('#rcCore').setAttribute('fill','#2a3034'); },3000); save(); return; }
+      if(shock&&t>1.2){ clearInterval(iv); this._run=false; sfx.alarm(); S.mistakes++; say(`<b>SCRAM: thermal shock.</b> ${L.toFixed(1)} L/min floods the core with cold coolant faster than its control rods can follow. HALE limits flow to 30 % above the minimum.`,6000); setTimeout(()=>this.gauge(el,p.Tc),2500); save(); return; }
+      if(t>=4.2){ clearInterval(iv); this._run=false; S.f.reactor=true; S.Tss=Tss; checkDone(); sfx.success(); sfx.tubeon(); note(`Reactor online: ${S.rpm} rpm = ${L.toFixed(1)} L/min, outlet steady at ${Tss.toFixed(1)} °C.`); say(`The core settles at ${Tss.toFixed(1)} °C. HALE: <i>"Reactor online. Bay power restored."</i>`,5000); refresh(); save(); } },100);
+  }
+}};
+
+/* ============================== ELECTROLYSIS ============================== */
+scenes.electro={ title:'Electrolysis unit', parent:'bay',
+render(){
+  const p=P();
+  return `<rect width="1600" height="900" fill="#1a2024"/>
+  ${plate('med',40,30,500,'Medical poster',['Adult O₂ use at rest + light work:','0.84 kg per person per day'],17)}
+  ${plate('chem',40,180,500,'Periodic chart (excerpt)',['H  1.008 g/mol     O  15.999 g/mol','R = 8.314 J/(mol·K)'],17)}
+  ${plate('cabin',40,330,500,'Ascent vehicle cabin',[`Free volume ${p.Vc.toFixed(1)} m³`,'Initial fill: 21 kPa O₂ at 20 °C'],17)}
+  <g data-act="take-flightplan" data-cap="A flight plan on the bench" id="elFP"><rect x="70" y="520" width="220" height="150" fill="#eef2f1" stroke="#7d8683" transform="rotate(3 180 595)"/><path d="M90 650 Q180 540 270 560" stroke="#c0503a" stroke-width="3" fill="none" transform="rotate(3 180 595)"/></g>
+  <!-- water tank -->
+  <rect x="340" y="500" width="200" height="340" rx="16" fill="#e8ece9" stroke="#5a6266" stroke-width="4"/><rect id="elWater" x="352" y="560" width="176" height="268" rx="8" fill="#3a7ec0" opacity=".7"/><text x="440" y="535" text-anchor="middle" font-family="${UI}" font-size="18" fill="#1b2226">H₂O feed</text>
+  <!-- stack -->
+  <rect x="620" y="140" width="380" height="600" rx="14" fill="url(#gPan)" stroke="#5a6266" stroke-width="4"/>
+  ${Array.from({length:12},(_,i)=>`<rect x="650" y="${180+i*44}" width="320" height="32" rx="4" fill="#3a6ea5" stroke="#1b2226"/>`).join('')}
+  <g id="elBub"></g>
+  <text x="810" y="770" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="22" fill="#e8ece9">PEM electrolyser</text>
+  <!-- cylinders -->
+  ${[['O₂',1080,'#e8ece9','elO'],['H₂',1300,'#c0503a','elH']].map(([n,x,c,id])=>`<rect x="${x}" y="160" width="160" height="560" rx="70" fill="url(#gCylV)" stroke="#1b2226" stroke-width="4"/><rect x="${x+30}" y="200" width="100" height="480" rx="40" fill="#0e1a1c"/><rect id="${id}" x="${x+30}" y="680" width="100" height="0" rx="20" fill="${c}" opacity=".8"/><text x="${x+80}" y="150" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="28" fill="#e8ece9">${n}</text><text id="${id}t" x="${x+80}" y="760" text-anchor="middle" font-family="${MONO}" font-size="18" fill="#9aa29f"></text>`).join('')}
+  <!-- feed control -->
+  <rect x="620" y="790" width="940" height="100" rx="10" fill="#1b2226" stroke="#3a4448" stroke-width="3"/>
+  <text x="650" y="830" font-family="${UI}" font-size="18" fill="#9aa29f">Water to split</text>${ledText(800,870,'',34,'#3fe0d0','elG')}
+  ${[['-100','−100'],['-10','−10'],['-1','−1'],['-0.1','−.1'],['0.1','+.1'],['1','+1'],['10','+10'],['100','+100']].map(([v,t],i)=>`<g data-act="wg${v}"><rect x="${930+i*66}" y="806" width="58" height="36" rx="5" fill="#3a4448"/><text x="${959+i*66}" y="831" text-anchor="middle" font-family="${MONO}" font-size="15" fill="#fff">${t}</text></g>`).join('')}
+  <g data-act="run"><rect x="930" y="848" width="520" height="34" rx="6" fill="#3fbfb0"/><text x="1190" y="872" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="18" fill="#0e1a1c">RUN ELECTROLYSIS</text></g>`;
+},
+update(el){ S.wg=S.wg||0; el.querySelector('#elG').textContent=S.wg.toFixed(1)+' g'; el.querySelector('#elFP').style.display=S.taken.flightplan?'none':'';
+  const p=P(); if(S.f.electro){ this.fill(el,1,p); } },
+fill(el,f,p){ const n=S.wg/18.015; el.querySelector('#elO').setAttribute('height',240*f); el.querySelector('#elO').setAttribute('y',680-240*f); el.querySelector('#elH').setAttribute('height',480*f); el.querySelector('#elH').setAttribute('y',680-480*f);
+  el.querySelector('#elOt').textContent=`${(n/2*f).toFixed(2)} mol`; el.querySelector('#elHt').textContent=`${(n*f).toFixed(2)} mol`; },
+act(a,h,el){
+  if(a.startsWith('plate-')) return openPlate(a.slice(6));
+  if(a==='take-flightplan'){ give('flightplan'); refresh(); return; }
+  if(!bayPowered()){ say('The electrolyser needs the bay\'s power. Bring the reactor online first.'); sfx.buzz(); return; }
+  if(S.f.electro){ say('The oxygen tank is full and sealed for the ascent.'); return; }
+  if(a.startsWith('wg')){ S.wg=Math.max(0,Math.round((S.wg+parseFloat(a.slice(2)))*10)/10); sfx.tick(); refresh(); return; }
+  if(a==='run'){ if(this._run) return; if(S.wg<=0) return; this._run=true; const p=P();
+    const bub=el.querySelector('#elBub'); bub.innerHTML=Array.from({length:40},()=>`<circle cx="${rnd(660,960)}" cy="${rnd(200,700)}" r="${rnd(2,6)}" fill="#e8f6ff" opacity=".7"><animate attributeName="cy" by="-120" dur="${rnd(.6,1.4).toFixed(2)}s" repeatCount="indefinite"/></circle>`).join('');
+    nz({dur:4,freq:3000,q:.4,gain:.1,attack:.3}); let f=0; const ok=S.wg>=p.water-0.05&&S.wg<=p.water*1.05, over=S.wg>p.water*1.05;
+    const iv=setInterval(()=>{ f=Math.min(1,f+.05); this.fill(el,f,p); if(f>=1){ clearInterval(iv); bub.innerHTML=''; this._run=false;
+      const nO=S.wg/18.015/2;
+      if(ok){ S.f.electro=true; S.h2mol=S.wg/18.015; checkDone(); sfx.success(); note(`Split ${S.wg.toFixed(1)} g of water: ${nO.toFixed(2)} mol O₂ for the ascent, and ${(S.wg/18.015).toFixed(2)} mol H₂ stored for propellant.`); say(`${nO.toFixed(2)} mol of oxygen. HALE: <i>"Cabin fill and flight reserve covered. I've stored the hydrogen. You'll want it later."</i>`,5600); }
+      else if(over){ sfx.alarm(); S.mistakes++; say(`<b>Relief valve lifts.</b> The O₂ tank is sized for the mission with 5 % margin; ${nO.toFixed(2)} mol overfills it and the excess is vented.`,5200); this.fill(el,0,p); }
+      else { sfx.buzz(); S.mistakes++; say(`HALE: <i>"${nO.toFixed(2)} mol O₂. Not enough for the cabin fill plus a 150 % flight reserve. Venting and restarting."</i>`,5200); this.fill(el,0,p); }
+      save(); } },100);
+  }
+}};
+
+/* ============================== CRANE ============================== */
+scenes.crane={ title:'Cargo crane', parent:'bay',
+render(){
+  const p=P();
+  if(!S.gear) S.gear=[0,0,0,0]; if(!S.fulc) S.fulc=8;
+  const slots=['stage 1 driver','stage 1 driven','stage 2 driver','stage 2 driven'];
+  return `<rect width="1600" height="900" fill="#1a2024"/><rect y="760" width="1600" height="140" fill="url(#pGrate)"/>
+  <rect x="980" y="30" width="26" height="730" fill="#f2c230"/><rect x="1540" y="30" width="26" height="730" fill="#f2c230"/><rect x="960" y="20" width="620" height="40" fill="#f2c230" stroke="#1b2226" stroke-width="3"/>
+  <circle cx="1270" cy="110" r="44" fill="url(#gPanD)" stroke="#1b2226" stroke-width="4"/><g id="crDrum" style="transform-origin:1270px 110px;transform-box:view-box"><line x1="1230" y1="110" x2="1310" y2="110" stroke="#9aa29f" stroke-width="6"/></g>
+  <line id="crCable" x1="1270" y1="154" x2="1270" y2="560" stroke="#1b2226" stroke-width="5"/>
+  <g id="crCask" style="transform-box:view-box"><rect x="1180" y="560" width="180" height="200" rx="22" fill="url(#gCylV)" stroke="#1b2226" stroke-width="4"/><rect x="1180" y="620" width="180" height="44" fill="url(#pHaz)"/></g>
+  <g id="crSmoke" pointer-events="none"></g>
+  ${plate('motor',30,20,450,'Hoist motor',['1450 rpm',`Rated torque ${p.Tm} N·m`],17)}
+  ${plate('drum',30,150,450,'Winch drum',[`Radius ${p.rd.toFixed(2)} m`,'Gear efficiency 90 % per stage'],17)}
+  ${plate('cask',500,20,440,'Fuel cask',[`Mass ${fk(p.M)} kg`],17)}
+  ${plate('window',500,120,440,'HALE: pass window',[`Hoist speed ≥ ${p.vmin.toFixed(2)} m/s`],17)}
+  <!-- gearbox -->
+  <rect x="30" y="270" width="920" height="300" rx="10" fill="#1b2226" stroke="#3a4448" stroke-width="3"/>
+  <text x="50" y="300" font-family="${UI}" font-size="17" fill="#9aa29f">Gearbox: two stages. Click + or − to swap gears from the parts bin.</text>
+  <g id="crGears"></g>
+  ${slots.map((s,i)=>`<g><g data-act="gm-${i}"><rect x="${60+i*225}" y="510" width="44" height="40" rx="5" fill="#3a4448"/><text x="${82+i*225}" y="538" text-anchor="middle" font-family="${MONO}" font-size="22" fill="#fff">−</text></g><text id="gt${i}" x="${147+i*225}" y="538" text-anchor="middle" font-family="${MONO}" font-size="22" fill="#f2c230"></text><g data-act="gp-${i}"><rect x="${190+i*225}" y="510" width="44" height="40" rx="5" fill="#3a4448"/><text x="${212+i*225}" y="538" text-anchor="middle" font-family="${MONO}" font-size="22" fill="#fff">+</text></g><text x="${147+i*225}" y="500" text-anchor="middle" font-family="${UI}" font-size="15" fill="#9aa29f">${s}</text></g>`).join('')}
+  <g data-act="hoist"><rect x="30" y="585" width="440" height="56" rx="8" fill="#3fbfb0"/><text x="250" y="621" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="20" fill="#0e1a1c">RUN HOIST</text></g>
+  <!-- brake lever -->
+  ${plate('brake',30,660,440,'Band brake',[`Band needs ${fk(p.Fb)} N at its pin`,'Pin must travel 20 mm','Glove: 150 N, hand travel ≤ 280 mm','Lever length 1.000 m'],15)}
+  <rect x="490" y="585" width="460" height="300" rx="10" fill="#1b2226" stroke="#3a4448" stroke-width="3"/>
+  <text x="510" y="615" font-family="${UI}" font-size="16" fill="#9aa29f">Holding brake lever: click a hole to move the pivot.</text>
+  <rect x="510" y="690" width="400" height="20" rx="6" fill="#9aa29f"/>${Array.from({length:20},(_,k)=>`<g data-act="fh-${k+1}"><rect class="hl" x="${505+(k+1)*10}" y="684" width="10" height="32" rx="2"/><circle cx="${510+(k+1)*.025*400}" cy="700" r="4.5" fill="#1b2226" stroke="#5a6266"/></g>`).join('')}
+  <text x="510" y="740" font-family="${MONO}" font-size="14" fill="#c0503a">band pin</text><text x="910" y="740" text-anchor="end" font-family="${MONO}" font-size="14" fill="#3fe0d0">hand</text>
+  <path id="crFul" d="" fill="#f2c230"/><g data-act="fmove--1" data-cap="Move pivot toward the pin"><rect x="510" y="756" width="44" height="34" rx="5" fill="#3a4448"/><text x="532" y="780" text-anchor="middle" font-family="${MONO}" font-size="18" fill="#fff">◀</text></g><g data-act="fmove-1" data-cap="Move pivot toward the hand"><rect x="866" y="756" width="44" height="34" rx="5" fill="#3a4448"/><text x="888" y="780" text-anchor="middle" font-family="${MONO}" font-size="18" fill="#fff">▶</text></g><text id="crFt" x="710" y="780" text-anchor="middle" font-family="${MONO}" font-size="16" fill="#e8ece9"></text>
+  <g data-act="brake"><rect x="580" y="810" width="260" height="50" rx="8" fill="#c0503a"/><text x="710" y="842" text-anchor="middle" font-family="${UI}" font-weight="700" font-size="16" fill="#fff">TEST BRAKE</text></g>`;
+},
+ratio(){ const t=S.gear.map(i=>TEETH[i]); return (t[1]/t[0])*(t[3]/t[2]); },
+update(el){
+  const t=S.gear.map(i=>TEETH[i]); t.forEach((v,i)=>el.querySelector('#gt'+i).textContent=v+'T');
+  const R=v=>v*1.3+6; const x1=120, x2=x1+R(t[0])+R(t[1])+6, x3=x2, x4=x3+R(t[2])+R(t[3])+6;
+  const gear=(x,y,n,id,col)=>`<g class="gr" id="${id}" style="transform-origin:${x}px ${y}px;transform-box:view-box"><path d="${gearPath(x,y,R(n),n)}" fill="${col}" stroke="#1b2226" stroke-width="2"/><circle cx="${x}" cy="${y}" r="${Math.max(6,R(n)*.18)}" fill="#1b2226"/></g>`;
+  el.querySelector('#crGears').innerHTML=`<text x="${x1}" y="330" text-anchor="middle" font-family="${MONO}" font-size="14" fill="#9aa29f">motor</text>${gear(x1,410,t[0],'cg0','#c9cfcc')}${gear(x2,410,t[1],'cg1','#9aa29f')}${gear(x3,410,t[2],'cg2','#c9a23a')}${gear(x4,410,t[3],'cg3','#8a7a40')}<text x="${Math.min(x4,880)}" y="330" text-anchor="middle" font-family="${MONO}" font-size="14" fill="#9aa29f">drum</text>`;
+  const k=S.fulc, xf=510+k*.025*400; el.querySelector('#crFul').setAttribute('d',`M${xf} 712 l-14 26 h28z`); el.querySelector('#crFt').textContent=`pivot ${(k*.025).toFixed(3)} m from the band pin`;
+  if(S.f.crane){ el.querySelector('#crCask').style.transform='translateY(-330px)'; el.querySelector('#crCable').setAttribute('y2',230); }
+},
+spin(el,i,rpm){ const t=S.gear.map(x=>TEETH[x]); const sp=[rpm,rpm*t[0]/t[1],rpm*t[0]/t[1],rpm*t[0]/t[1]*t[2]/t[3]]; [0,1,2,3].forEach(j=>{ const g=el.querySelector('#cg'+j); g.getAnimations().forEach(a=>a.cancel()); if(rpm>0) g.animate([{transform:'rotate(0)'},{transform:`rotate(${j%2?-360:360}deg)`}],{duration:Math.min(20000,Math.max(120,60000/sp[j]*6)),iterations:Infinity}); }); },
+act(a,h,el){
+  if(a.startsWith('plate-')) return openPlate(a.slice(6));
+  if(!bayPowered()){ say('The crane needs the bay\'s power. Bring the reactor online first.'); sfx.buzz(); return; }
+  if(a.startsWith('gm-')||a.startsWith('gp-')){ if(S.f.crane) return; const i=+a.slice(3); S.gear[i]=(S.gear[i]+(a[1]==='p'?1:TEETH.length-1))%TEETH.length; sfx.click(); refresh(); return; }
+  if(a.startsWith('fmove-')){ if(S.f.brake) return; S.fulc=Math.max(1,Math.min(20,S.fulc+parseInt(a.slice(6)))); sfx.click(); refresh(); return; }
+  if(a.startsWith('fh-')){ if(S.f.brake) return; S.fulc=+a.slice(3); sfx.click(); refresh(); return; }
+  if(a==='hoist'){
+    if(S.f.crane){ say('The cask is up and locked on the gantry.'); return; } if(this._run) return; const p=P();
+    const i=this.ratio(), Tout=p.Tm*i*.81, Tload=p.M*GM*p.rd, v=1450/i*2*Math.PI*p.rd/60; this._run=true; sfx.clunk(); this.spin(el,0,Tout>=Tload?1450:60);
+    setTimeout(()=>{ this._run=false;
+      if(Tout<Tload){ this.spin(el,0,0); sfx.buzz(); el.querySelector('#crSmoke').innerHTML=Array.from({length:10},()=>`<circle cx="${rnd(80,200)}" cy="400" r="${rnd(10,24)}" fill="#9aa29f" opacity=".5"><animate attributeName="cy" by="-160" dur="2s" fill="freeze"/><animate attributeName="opacity" from=".5" to="0" dur="2s" fill="freeze"/></circle>`).join(''); S.mistakes++; say(`<b>Motor stall.</b> The drum gets ${Tout.toFixed(0)} N·m after losses but the cask needs ${Tload.toFixed(0)} N·m. Ratio ${i.toFixed(2)} is too low.`,5400); save(); return; }
+      if(v<p.vmin){ el.querySelector('#crCask').animate([{transform:'translateY(0)'},{transform:'translateY(-30px)'},{transform:'translateY(0)'}],{duration:3000}); setTimeout(()=>this.spin(el,0,0),2800); S.mistakes++; say(`It lifts, but at ${v.toFixed(3)} m/s. HALE: <i>"Too slow. At that speed we miss the pass window. I need at least ${p.vmin.toFixed(2)} m/s."</i>`,5600); save(); return; }
+      const ck=el.querySelector('#crCask'); ck.style.transition='transform 3s ease-in-out'; ck.style.transform='translateY(-330px)'; el.querySelector('#crCable').setAttribute('y2',230); setTimeout(()=>this.spin(el,0,0),3000);
+      S.f.crane=true; sfx.success(); note(`Hoisted the cask: ratio ${i.toFixed(2)} gives ${Tout.toFixed(0)} N·m (need ${Tload.toFixed(0)}) at ${v.toFixed(3)} m/s.`); say(`The cask rises smoothly at ${v.toFixed(2)} m/s. Now set the holding brake.`,4600); save(); checkDone();
+    },1400);
+  }
+  if(a==='brake'){
+    if(S.f.brake){ say('The brake is set.'); return; } const p=P(); const ag=S.fulc*.025, ma=(1-ag)/ag, F=150*ma, travel=20*ma;
+    if(F<p.Fb){ sfx.buzz(); S.mistakes++; say(`You haul on the lever with everything you have: ${F.toFixed(0)} N at the pin. The band needs ${fk(p.Fb)} N. It slips.`,5000); save(); return; }
+    if(travel>280){ sfx.buzz(); S.mistakes++; say(`Plenty of force, but the band needs 20 mm of pin travel, which means ${travel.toFixed(0)} mm at your hand. Your arm runs out at 280 mm.`,5400); save(); return; }
+    S.f.brake=true; sfx.clunk(); sfx.success(); note(`Set the holding brake: pivot ${ag.toFixed(3)} m from the pin, mechanical advantage ${ma.toFixed(2)}.`); say(`The band bites. ${F.toFixed(0)} N at the pin, ${travel.toFixed(0)} mm of hand travel. The cask is held.`,4800); save(); checkDone();
+  }
+}};
+function checkDone(){ if(phase3Done()&&!S.f.won){ S.f.won=true; save(); setTimeout(()=>{ sfx.success(); showWin(); },2600); } }
+/* ============================== SHARED HELPERS (room 3) ============================== */
+function gearPath(cx,cy,r,n){ let d=''; const t=Math.max(3,r*.14); for(let i=0;i<n*2;i++){ const a0=i*Math.PI/n, a1=(i+1)*Math.PI/n, R=i%2?r-t:r+t*.4; const p=(a,rr)=>`${(cx+rr*Math.cos(a)).toFixed(1)} ${(cy+rr*Math.sin(a)).toFixed(1)}`; d+=(i?'L':'M')+p(a0+.04,R)+' L'+p(a1-.04,R)+' '; } return d+'Z'; }
+function ledText(x,y,txt,size,col,id=''){ return `<text ${id?`id="${id}"`:''} x="${x}" y="${y}" text-anchor="middle" font-family="JetBrains Mono, Consolas, monospace" font-weight="700" font-size="${size}" fill="${col}" filter="url(#glowT)">${txt}</text>`; }
+Object.assign(sfx,{
+  spark(){ nz({dur:.35,freq:5000,q:.4,gain:.5,attack:.002}); nz({dur:.12,freq:900,q:2,gain:.4,delay:.05}); },
+  alarm(){ tn(440,.5,'sawtooth',.05,880); tn(880,.5,'sawtooth',.05,440,.5); },
+  tubeon(){ for(let i=0;i<5;i++) nz({dur:.05,freq:3000,q:6,gain:.2,delay:i*.12+Math.random()*.05}); },
+});
+
+/* ============================== HALE MANUAL ============================== */
+function sandbox(box,id,fn){ const root=box.querySelector('#'+id); if(!root) return; const run=()=>{ const v={}; root.querySelectorAll('input').forEach(i=>v[i.name]=+i.value); root.querySelectorAll('[data-show]').forEach(s=>{ const n=s.dataset.show; s.textContent=v[n]; }); root.querySelector('.out').innerHTML=fn(v); }; root.querySelectorAll('input').forEach(i=>i.oninput=run); run(); }
+const rng=(name,min,max,step,val,label)=>`<label style="display:block;margin:.35rem 0">${label}: <b data-show="${name}"></b><br><input type="range" name="${name}" min="${min}" max="${max}" step="${step}" value="${val}" style="width:100%"></label>`;
+const MAN=[
+ {t:'Electrical',h:`<h3>Batteries: series, parallel, usable energy</h3><p>Cells wired <b>in series</b> add their voltages. Strings wired <b>in parallel</b> add their capacities (amp-hours, Ah). A pack of S cells in series and P strings in parallel has <span style="font-family:var(--tape)">V = S × V<sub>cell</sub></span> and <span style="font-family:var(--tape)">Ah = P × Ah<sub>cell</sub></span>.</p><p>Energy = V × Ah (watt-hours). Lithium cells are only drained to a set <b>depth of discharge</b> to protect them, so usable energy = V × Ah × DoD. Runtime = usable energy ÷ load power.</p><p><i>Worked example:</i> a 12.0 V, 90 W load needs 6 h with 80 % DoD, from 3.0 V, 10 Ah cells. Series: 12.0 ÷ 3.0 = 4 cells. Energy needed 90 × 6 = 540 Wh, so pack Wh before DoD = 540 ÷ 0.8 = 675 Wh. Ah = 675 ÷ 12 = 56.25 Ah, so 6 parallel strings (60 Ah). Total 24 cells.</p><div id="sbE" class="paper" style="margin-top:.6rem">${rng('s',1,8,1,4,'Series cells')}${rng('p',1,6,1,2,'Parallel strings')}${rng('w',50,250,10,100,'Load (W)')}<div class="out"></div></div>`,sb:['sbE',v=>`Pack ${(3.7*v.s).toFixed(1)} V, ${v.p*5} Ah (5 Ah cells). Usable ${(3.7*v.s*v.p*5*.8).toFixed(0)} Wh. Runtime at ${v.w} W: <b>${(3.7*v.s*v.p*5*.8/v.w).toFixed(2)} h</b>.`]},
+ {t:'Digital logic',h:`<h3>Truth tables, K-maps, NAND</h3><p>A <b>Karnaugh map</b> lays out a truth table so that neighbouring cells differ by one input. Columns and rows go 00, 01, 11, 10 (Gray code), and the edges wrap round.</p><p>Circle groups of 1s in sizes 1, 2, 4 or 8, as big as possible. Each group becomes one AND term made of the inputs that stay constant inside it. OR the terms together.</p><p><i>Worked example:</i> Y is 1 when (P and Q) or R, but never when S. In the map, the R=1 columns form a group of 8 → R. The P=1,Q=1 row forms a group → P·Q. S=1 cells are 0, so Y = ¬S·(P·Q + R).</p><p><b>NAND is universal:</b> NOT x = NAND(x, x). x AND y = NOT(NAND(x, y)). x OR y = NAND(NOT x, NOT y). So any SOP expression can be built from NANDs alone.</p><p>Floating TTL inputs read as 1, so a NAND with one input left open acts as an inverter.</p>`},
+ {t:'Fluid power',h:`<h3>Hydraulic force and friction</h3><p><b>Pascal's law:</b> pressure in a confined fluid acts equally everywhere. A cylinder's force is <span style="font-family:var(--tape)">F = p × A</span>, with A = π d² ÷ 4.</p><p>To slide a heavy object you must beat static friction: <span style="font-family:var(--tape)">F = μ<sub>s</sub> × m × g</span>, plus any other drag. <b>On Mars, g = 3.71 m/s²</b>, not 9.81.</p><p>Units: 1 MPa = 1,000,000 N/m². A 50 mm bore is 0.050 m.</p><p><i>Worked example:</i> a 2,000 kg cart on Earth, μ<sub>s</sub> 0.25, plus 500 N drag: F = 0.25 × 2,000 × 9.81 + 500 = 5,405 N. With a 32 mm bore (A = 0.000804 m²) you need 5,405 ÷ 0.000804 = 6.72 MPa. Never exceed the cylinder's rated pressure, or the push the structure can take.</p><div id="sbF" class="paper" style="margin-top:.6rem">${rng('d',20,100,1,40,'Bore (mm)')}${rng('p',1,20,.5,8,'Pressure (MPa)')}<div class="out"></div></div>`,sb:['sbF',v=>`Area ${(Math.PI*(v.d/2000)**2*1e6).toFixed(0)} mm². Force <b>${fk(v.p*1e6*Math.PI*(v.d/2000)**2)} N</b>.`]},
+ {t:'Heat transfer',h:`<h3>Coolant flow</h3><p>Heat carried by a flowing liquid: <span style="font-family:var(--tape)">Q = ṁ × c × ΔT</span>. Q in kW, ṁ in kg/s, c in kJ/(kg·K), ΔT in K (a 1 °C difference equals 1 K).</p><p>Rearranged: ṁ = Q ÷ (c × ΔT). Convert mass flow to volume with density: L/s = ṁ ÷ ρ. Multiply by 60 for L/min. A positive-displacement pump moves a fixed volume per revolution, so rpm = (L/min) ÷ (L/rev).</p><p><i>Worked example:</i> 50 kW, coolant enters at 30 °C and may leave at 80 °C (ΔT 50 K), c = 4.0 kJ/(kg·K), ρ = 1.0 kg/L. ṁ = 50 ÷ (4.0 × 50) = 0.25 kg/s = 15 L/min. With 0.05 L/rev, the pump needs 300 rpm.</p><p>Too little flow overheats the core. Far too much can thermally shock it.</p>`},
+ {t:'Chemistry',h:`<h3>Moles, gases and electrolysis</h3><p>A <b>mole</b> is a fixed number of particles. Molar mass converts grams to moles: H₂O = 2 × 1.008 + 15.999 = 18.015 g/mol; O₂ = 31.998 g/mol.</p><p>Electrolysis: <span style="font-family:var(--tape)">2 H₂O → 2 H₂ + O₂</span>. Two moles of water give one mole of O₂ and two of H₂.</p><p><b>Ideal gas law:</b> <span style="font-family:var(--tape)">n = pV ÷ (RT)</span>, with p in Pa, V in m³, T in kelvin (°C + 273.15), R = 8.314.</p><p><i>Worked example:</i> fill 1.0 m³ with O₂ at 20 kPa and 20 °C: n = 20,000 × 1.0 ÷ (8.314 × 293.15) = 8.21 mol. Two people for 12 h at 0.84 kg/day each = 0.84 kg O₂ = 26.25 mol. Total 34.46 mol O₂ needs 68.92 mol water = 1,241.6 g.</p><p>Flight rules may demand a reserve: multiply the consumption part, not the cabin fill, by the reserve factor.</p>`},
+ {t:'Mechanical',h:`<h3>Gear trains and levers</h3><p>A gear stage's ratio is driven teeth ÷ driver teeth. Stages multiply. A ratio of i <b>multiplies torque by i</b> and <b>divides speed by i</b>, minus friction: each stage here passes 90 % of the torque.</p><p>Hoist torque needed = m × g × r (drum radius). Rope speed = (rpm ÷ i) × 2πr ÷ 60.</p><p><i>Worked example:</i> lift 500 kg on Mars with a 0.10 m drum: 500 × 3.71 × 0.10 = 185.5 N·m. A 10 N·m motor through two 90 % stages needs i ≥ 185.5 ÷ (10 × 0.81) = 22.9. Gears 12→48 then 15→90 would give 4 × 6 = 24.</p><p><b>Levers:</b> force × distance balances on each side of the pivot. Mechanical advantage = long arm ÷ short arm. More advantage means more hand travel: the pin moves less than your hand by the same factor.</p><div id="sbG" class="paper" style="margin-top:.6rem">${rng('a',12,72,1,15,'Stage 1 driver teeth')}${rng('b',12,72,1,45,'Stage 1 driven teeth')}<div class="out"></div></div>`,sb:['sbG',v=>`Stage ratio <b>${(v.b/v.a).toFixed(2)}</b>. A 10 N·m, 1,450 rpm motor gives ${(10*v.b/v.a*.9).toFixed(1)} N·m at ${(1450*v.a/v.b).toFixed(0)} rpm.`]},
+];
+function openManual(start=0){
+  let p=start; const draw=(box,turn)=>{ const pg=box.querySelector('.page'); pg.innerHTML=MAN[p].h+`<span class="pno">${p+1} / ${MAN.length}</span>`; if(turn){ pg.classList.remove('turn'); void pg.offsetWidth; pg.classList.add('turn'); } box.querySelectorAll('#mnTabs button').forEach((b,i)=>b.classList.toggle('ghost',i!==p)); if(MAN[p].sb) sandbox(box,MAN[p].sb[0],MAN[p].sb[1]); };
+  modal('HALE engineering manual',`<div id="mnTabs" class="mbtns" style="margin:0 0 .7rem">${MAN.map((m,i)=>`<button class="mbtn ghost" data-i="${i}" style="padding:.25rem .6rem;font-size:.9rem">${m.t}</button>`).join('')}</div><div class="book"><div class="page" style="width:min(44rem,88vw)"></div></div>`,box=>{ draw(box); box.querySelectorAll('#mnTabs button').forEach(b=>b.onclick=()=>{ p=+b.dataset.i; sfx.page(); draw(box,1); }); });
+}
+
+/* ============================== DOCS ============================== */
+function examine(id){
+  if(id==='spec'){ const rows=Array.from({length:16},(_,k)=>{ const v=[(k>>3)&1,(k>>2)&1,(k>>1)&1,k&1]; return `<tr><td>${k}</td>${v.map(x=>`<td>${x}</td>`).join('')}<td style="font-weight:700;color:${SPECF(...v)?'#1f7a6c':'#a33'}">${SPECF(...v)}</td></tr>`; }).join('');
+    return modal('Door controller specification',`<div class="paper"><p style="font-family:var(--tape)">BLAST DOOR INTERLOCK, REV C. Inputs: A airlock sealed, B pressure equalised, C commander override, D fire alarm. Output Y = 1 opens.</p><div style="overflow-x:auto"><table class="ttab" style="margin:auto"><tr><th>row</th><th>A</th><th>B</th><th>C</th><th>D</th><th>Y</th></tr>${rows}</table></div></div>`); }
+  if(id==='flightplan'){ const p=P(); return modal('Ascent flight plan',`<div class="paper" style="font-family:var(--tape);line-height:1.7">ASCENT VEHICLE AV-2 — CONTINGENCY FLIGHT<br>Crew: 1<br>Ascent, rendezvous and docking: ${p.H} h<br>Flight rule 7.3: carry 150 % of expected crew O₂ use.<br>Cabin must be filled before launch (see cabin plate).</div>`,null,()=>note(`Flight plan: 1 crew, ${p.H} h flight, 150 % O₂ reserve on consumption, plus cabin fill.`)); }
+}
+
+/* ============================== HINTS ============================== */
+function objective(){
+  const f=S.f, p=P();
+  if(!f.bat) return {k:'bat',g:'Build a battery pack to wake HALE.',h:[`Read the three plates in Power Bay B. The pack voltage has to match the load. Check the HALE manual (top bar) on series and parallel cells.`,`Series cells = ${p.V.toFixed(1)} ÷ 3.7. Then work out the energy HALE needs (W × h), divide by 80 % depth of discharge, then by the pack voltage for amp-hours. You'll need more cells than the tray holds: the drone and the EVA suit locker have some.`,`${p.ns} in series. Energy ${p.W} × ${p.T} = ${p.W*p.T} Wh ÷ 0.8 = ${(p.W*p.T/.8).toFixed(0)} Wh ÷ ${p.V.toFixed(1)} V = ${p.ah.toFixed(2)} Ah ÷ ${p.C} Ah per string = ${p.np} parallel strings. Set ${p.ns} series × ${p.np} parallel (${p.ns*p.np} cells).`]};
+  if(!f.logic) return {k:'logic',g:'Rebuild the door interlock logic.',h:['Take the spec printout from the terminal tray. Fill in the K-map pad from its Y column, then group the 1s. The manual\'s Digital logic chapter explains.','The minimal form is Y = ¬D · (A·B + C). Build it from NANDs: NOT is a NAND with both inputs tied together; A·B + C is NAND(NAND(A,B), NOT C); an AND is a NAND followed by a NOT.','G1 = A,B. G2 = C,C. G3 = G1,G2. G4 = D,D. G5 = G3,G4. G6 = G5,G5. Wire Y to G6 and run the test.']};
+  if(!f.door) return {k:'door',g:'Open the blast door hydraulically.',h:['The door plate gives you mass, friction and seal drag. Remember where you are: Mars gravity is 3.71 m/s².',`Breakaway force = μs × m × g + seal drag. Pick a cylinder, work out its area (π d² ÷ 4), and set pressure = force ÷ area. Stay under the cylinder rating, the 14 MPa pump limit and the ${fk(p.Fmax)} N track limit.`,`F = ${p.mu.toFixed(2)} × ${fk(p.m)} × 3.71 + ${fk(p.seal)} = ${fk(p.Freq)} N. For example the Ø${p.cylAns.d} mm cylinder at ${p.pAns.toFixed(1)} MPa gives ${fk(p.pAns*1e6*Math.PI*(p.cylAns.d/2000)**2)} N.`]};
+  if(!f.reactor) return {k:'reactor',g:'Restart the reactor without overheating it.',h:['Read the reactor, coolant and pump plates, and the return-temperature gauge. The Heat transfer chapter has the formula.',`ṁ = Q ÷ (c × ΔT), where ΔT = ${p.Tmax} − ${p.Tc} = ${p.Tmax-p.Tc} K. Convert kg/s to L/min with the density, then to rpm with the displacement.`,`ṁ = ${p.Q} ÷ (${p.cp} × ${p.Tmax-p.Tc}) = ${p.mdot.toFixed(4)} kg/s → ${p.Lmin.toFixed(2)} L/min → ${p.rpmReq.toFixed(1)} rpm. Set at least ${Math.ceil(p.rpmReq)} rpm (and no more than ${Math.floor(p.rpmReq*1.3)}).`]};
+  if(!f.electro) return {k:'electro',g:'Make oxygen for the ascent.',h:['You need two amounts of O₂: the cabin fill (ideal gas law, from the cabin plate) and the flight use (poster plus flight plan, with its reserve). The Chemistry chapter walks through it.',`Cabin: n = 21,000 × ${p.Vc.toFixed(1)} ÷ (8.314 × 293.15). Flight: 0.84 kg/day × ${p.H}/24 × 1.5, converted to moles with 31.998 g/mol. Water = 2 × total O₂ moles × 18.015 g.`,`Cabin ${p.n_fill.toFixed(2)} mol + flight ${p.n_breath.toFixed(2)} mol = ${p.nO2.toFixed(2)} mol O₂ → ${(p.nO2*2).toFixed(2)} mol water → ${p.water.toFixed(1)} g. Feed between ${p.water.toFixed(1)} and ${(p.water*1.05).toFixed(1)} g.`]};
+  if(!f.crane) return {k:'crane',g:'Hoist the fuel cask.',h:['Torque needed at the drum is m × g × r. The motor\'s torque is multiplied by the gear ratio and reduced to 90 % per stage. Speed is divided by the ratio.',`Ratio must be at least ${(p.M*GM*p.rd).toFixed(1)} ÷ (${p.Tm} × 0.81) = ${p.imin.toFixed(2)} to lift, and at most 1450 × 2π × ${p.rd} ÷ (60 × ${p.vmin.toFixed(2)}) = ${p.imax.toFixed(2)} to stay fast enough.`,`One working set: ${p.combo[0]}T → ${p.combo[1]}T, then ${p.combo[2]}T → ${p.combo[3]}T, ratio ${p.combo[4].toFixed(2)}.`]};
+  if(!f.brake) return {k:'brake',g:'Set the holding brake.',h:['The lever multiplies your 150 N by its mechanical advantage, but your hand must move further than the pin by the same factor.',`You need advantage of at least ${fk(p.Fb)} ÷ 150 = ${p.maLo.toFixed(2)}, and at most 280 ÷ 20 = 14. Advantage = (1 − a) ÷ a, where a is the pivot distance from the pin.`,`Put the pivot at ${p.holes.map(k=>(k*.025).toFixed(3)+' m').join(' or ')} from the band pin.`]};
+  return {k:'done',g:'Phase 3 complete.',h:[]};
+}
+function openHints(){ const o=objective(); const n=S.tier[o.k]||0; modal('Hints',`<div class="goal">${o.g}</div>${o.h.slice(0,n).map((t,i)=>`<div class="hint"><b>Hint ${i+1}.</b> ${t}</div>`).join('')}${n<o.h.length?`<div class="mbtns"><button class="mbtn" id="hNext">${n===0?'Show a hint':n===o.h.length-1?'Show the answer':'Show another hint'}</button></div>`:''}`,box=>{ const b=box.querySelector('#hNext'); if(b) b.onclick=()=>{ S.tier[o.k]=n+1; S.hints++; $('#hintN').textContent=S.hints; save(); closeModal(); openHints(); }; }); }
+function openJournal(){ const o=objective(); modal('Journal',`<div class="goal">Current aim: ${o.g}</div>${S.journal.length?`<ol class="jlist">${S.journal.map(j=>`<li>${esc(j)}</li>`).join('')}</ol>`:'<p class="mtext">Nothing noted yet.</p>'}`); }
+function openMenu(){ modal('Menu',`<p class="mtext">Progress saves automatically. The numbers in this room are different on every new game.</p><div class="mbtns"><button class="mbtn" id="mnRes">Resume</button><button class="mbtn ghost" id="mnRestart">New game (new numbers)</button></div>`,box=>{ box.querySelector('#mnRes').onclick=closeModal; box.querySelector('#mnRestart').onclick=()=>{ const b=box.querySelector('#mnRestart'); if(b.dataset.c){ wipe(); location.reload(); } else { b.dataset.c=1; b.textContent='Click again to erase your progress'; } }; }); }
+$('#bHint').onclick=()=>{ audioInit(); openHints(); };
+$('#bJournal').onclick=()=>{ audioInit(); openJournal(); };
+$('#bManual').onclick=()=>{ audioInit(); openManual(); };
+$('#bMenu').onclick=()=>{ audioInit(); openMenu(); };
+$('#bSound').onclick=()=>{ audioInit(); setSound(!A.on); };
+function showWin(){
+  $('#winText').textContent=`The reactor is stable, ${(S.h2mol||0).toFixed(1)} mol of hydrogen is banked, and the fuel cask hangs over the propellant bay hatch. HALE: "Phase 3 complete. Next: propellant, structure, and the launch itself."`;
+  $('#winStats').innerHTML=`<span class="stat"><b>${fmtT(S.t)}</b>time</span><span class="stat"><b>${S.hints}</b>hints</span><span class="stat"><b>${S.mistakes}</b>failed attempts</span>`;
+  $('#win').classList.add('on');
+}
+$('#bAgain').onclick=()=>{ wipe(); location.reload(); };
+$('#bStay').onclick=()=>$('#win').classList.remove('on');
+
+/* ============================== INIT ============================== */
+function grain(){ const c=$('#grain'); c.width=320; c.height=180; const x=c.getContext('2d'); const d=x.createImageData(320,180); for(let i=0;i<d.data.length;i+=4){ const v=Math.random()*255; d.data[i]=d.data[i+1]=d.data[i+2]=v; d.data[i+3]=255; } x.putImageData(d,0,0); c.style.width='100%'; c.style.height='100%'; }
+function start(){
+  audioInit(); $('#intro').classList.remove('on'); S.started=true; S.sel=null; if(!S.seed) S.seed=(Math.random()*2**31)|0; P();
+  renderInv(); $('#hintN').textContent=S.hints;
+  const el=L('L0'); cur='L0'; L('L1').classList.add('hidden'); mount(el,S.scene); el.classList.remove('hidden');
+  $('#back').style.display=scenes[S.scene].parent?'block':'none';
+  if(S.t<5) setTimeout(()=>say('Emergency lighting. Somewhere, a fan ticks over and stops. The station is running on nothing.',4600),900);
+  save(); if(S.f.won) showWin();
+}
+setInterval(()=>{ if(!S.started||S.f.won||document.hidden) return; S.t++; $('#timer').textContent=fmtT(S.t); if(S.t%10===0) save(); },1000);
+grain();
+if(location.hash==='#qa') window.__qa={P:()=>P(),S:()=>S};
+const saved=load();
+if(saved && saved.started){ $('#bContinue').style.display=''; $('#bContinue').onclick=()=>{ S=saved; S.sel=null; start(); }; }
+$('#bBegin').onclick=()=>{ S=fresh(); start(); };
+})();
+</script>
+</body>
+</html>
